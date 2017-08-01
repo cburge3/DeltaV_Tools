@@ -1,13 +1,13 @@
-# from lxml import etree as et
 import subprocess
 import re as re
 import xml.etree.ElementTree as et
 
-filename = 'Winder_testing'
+filename = 'Sulfone_31Jul'
 subdir = 'src_files'
 temp = 'temporary'
 xmlfile = subdir + '\\' + filename + '.xml'
 tempfile = subdir + '\\' + temp + '.xml'
+
 
 def convertfhxtoxml():
     command = 'deltav_xml.bat' + ' ' + filename
@@ -19,9 +19,10 @@ def convertfhxtoxml():
     if p.returncode != 0:
         raise stderr# is 0 if success
 
+
 def cleanupxml():
 
-    # bads = re.compile(r'&#\d+?;')
+    bads = re.compile(r'&#\d+?;')
     # remove high/low unicodes not accepted by et.parse
 
     out = open(tempfile, mode='w')
@@ -30,12 +31,25 @@ def cleanupxml():
             a = ''
             for c in l:
                 if 31 < ord(c) < 126:
-                    a = a + c
+                    a += c
                 a = re.sub(bads, '', a)
             out.write(a + '\x0A')
 
-# convertfhxtoxml()
-# cleanupxml()
+
+def getfrommodules(topleveltag):
+    # get all references to I/O from class baseed modules
+    for mod in root.findall(topleveltag):
+        for tag in mod.iter('ref'):
+            if tag.text is not None:
+                try:
+                    if tag.text.split('/')[2] in DSTs:
+                        report.writelines(mod.attrib['tag'] + ', ' + tag.text.split('/')[2] + '\n')
+                except IndexError:
+                    pass
+
+
+convertfhxtoxml()
+cleanupxml()
 
 tree = et.parse(tempfile)
 root = tree.getroot()
@@ -43,17 +57,14 @@ DSTs = {chm.text for chm in root.findall('charm/simple_io_channel/device_signal_
 
 report = open('report.csv', mode='w')
 
-# # get all references to I/O from class baseed modules
-for mod in root.findall('module_instance'):
-    for tag in mod.iter('ref'):
-        if tag.text is not None:
-            if tag.text.split('/')[2] in DSTs:
-                report.writelines(mod.attrib['tag'] + ', ' + tag.text.split('/')[2] + '\n')
+# class based modules
+getfrommodules('module_instance')
+
+# non class based modules
+getfrommodules('module')
+
 
 # get all references from non class based modules
-# for mod in root.finall('module'):
-#     for a in mod.iter('ref'):
-#         print(mod.attrib['tag'], a.text)
 
 # get all I/O
 # old code that gets CIOC and baseplate numbers but is not really relevant for our excercise
