@@ -2,11 +2,16 @@ import subprocess
 import re as re
 import xml.etree.ElementTree as et
 
-filename = 'Sulfone_31Jul'
+filename = 'SulfoneUtilities_3-Aug'
 subdir = 'src_files'
 temp = 'temporary'
-xmlfile = subdir + '\\' + filename + '.xml'
-tempfile = subdir + '\\' + temp + '.xml'
+# xmlfile = subdir + '\\' + filename + '.xml'
+xmlfile = subdir + '\\' + 'SulfoneUtilities_3-Aug' + '.xml'
+# tempfile = subdir + '\\' + temp + '.xml'
+tempfile = subdir + '\\' + 'temp.xml'
+charmpath = 'charm/simple_io_channel/device_signal_tag'
+sischarmpath = 'sis_charm/simple_io_channel/device_signal_tag'
+referencedDSTs = set()
 
 
 def convertfhxtoxml():
@@ -43,25 +48,40 @@ def getfrommodules(topleveltag):
             if tag.text is not None:
                 try:
                     if tag.text.split('/')[2] in DSTs:
-                        report.writelines(mod.attrib['tag'] + ', ' + tag.text.split('/')[2] + '\n')
+                        t = tag.text.split('/')[2]
+                        report.writelines(mod.attrib['tag'] + ',' + t + '\n')
+                        referencedDSTs.add(t)
                 except IndexError:
+                    # properly formatted DST references will include "//" before the DST name so we use slice[2]
                     pass
 
+def unreferencedDSTs():
+    u = DSTs - referencedDSTs
+    unrerenced.writelines(e + '\n' for e in u)
 
-convertfhxtoxml()
-cleanupxml()
 
-tree = et.parse(tempfile)
-root = tree.getroot()
-DSTs = {chm.text for chm in root.findall('charm/simple_io_channel/device_signal_tag') if chm.text is not None}
+if __name__ == '__main__':
+    # steps to create the xml tree
+    # convertfhxtoxml()
+    # cleanupxml()
 
-report = open('report.csv', mode='w')
+    tree = et.parse(tempfile)
+    root = tree.getroot()
+    DSTs = {chm.text for chm in root.findall(charmpath) if chm.text is not None}
 
-# class based modules
-getfrommodules('module_instance')
+    report = open(filename + '_report.csv', mode='w')
+    unrerenced = open(filename + '_unref.csv', mode='w')
 
-# non class based modules
-getfrommodules('module')
+    # class based modules
+    getfrommodules('module_instance')
+
+    # non class based modules
+    getfrommodules('module')
+
+    # safety modules
+    getfrommodules('sif_module')
+
+    unreferencedDSTs()
 
 
 # get all references from non class based modules
