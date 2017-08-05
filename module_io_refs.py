@@ -1,35 +1,35 @@
 import subprocess
 import re as re
 import xml.etree.ElementTree as et
+from os import remove
 
 filename = 'SulfoneUtilities_3-Aug'
 subdir = 'src_files'
 temp = 'temporary'
-# xmlfile = subdir + '\\' + filename + '.xml'
-xmlfile = subdir + '\\' + 'SulfoneUtilities_3-Aug' + '.xml'
-# tempfile = subdir + '\\' + temp + '.xml'
-tempfile = subdir + '\\' + 'temp.xml'
-charmpath = 'charm/simple_io_channel/device_signal_tag'
+xmlfile = subdir + '\\' + filename + '.xml'
+tempfile = subdir + '\\' + temp + '.xml'
+
+charmpath = 'charm/simple_io_channel/'
+analog = 'device_signal_tag'
+HART = 'hart_device_signal_tag'
 sischarmpath = 'sis_charm/simple_io_channel/device_signal_tag'
 referencedDSTs = set()
 
 
 def convertfhxtoxml():
     command = 'deltav_xml.bat' + ' ' + filename
-    p = subprocess.Popen(command, shell=True, stdout = subprocess.PIPE,
+    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
                          cwd=r"C:\Users\cburge\PycharmProjects\DeltaV Tools\\src_files")
-
     stdout, stderr = p.communicate()
     # print(stdout, stderr)
     if p.returncode != 0:
-        raise stderr# is 0 if success
+        raise stderr
 
 
 def cleanupxml():
-
+    # remove escaped xml characters - probably overkill but we don't care about these
     bads = re.compile(r'&#\d+?;')
     # remove high/low unicodes not accepted by et.parse
-
     out = open(tempfile, mode='w')
     with open(xmlfile, encoding='utf-8') as file:
         for l in file:
@@ -55,6 +55,7 @@ def getfrommodules(topleveltag):
                     # properly formatted DST references will include "//" before the DST name so we use slice[2]
                     pass
 
+
 def unreferencedDSTs():
     u = DSTs - referencedDSTs
     unrerenced.writelines(e + '\n' for e in u)
@@ -62,12 +63,13 @@ def unreferencedDSTs():
 
 if __name__ == '__main__':
     # steps to create the xml tree
-    # convertfhxtoxml()
-    # cleanupxml()
+    convertfhxtoxml()
+    cleanupxml()
 
     tree = et.parse(tempfile)
     root = tree.getroot()
-    DSTs = {chm.text for chm in root.findall(charmpath) if chm.text is not None}
+    DSTs = {chm.text for chm in root.findall(charmpath + analog) if chm.text is not None}
+    DSTs.update([chm.attrib['name'] for chm in root.findall(charmpath + HART) if chm.attrib is not None])
 
     report = open(filename + '_report.csv', mode='w')
     unrerenced = open(filename + '_unref.csv', mode='w')
@@ -82,6 +84,8 @@ if __name__ == '__main__':
     getfrommodules('sif_module')
 
     unreferencedDSTs()
+
+    # remove(tempfile)
 
 
 # get all references from non class based modules
