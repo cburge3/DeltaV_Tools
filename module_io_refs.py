@@ -3,7 +3,7 @@ import re as re
 import xml.etree.ElementTree as et
 from os import remove
 
-filename = 'SulfoneUtilities_3-Aug'
+filename = 'AMODEL_DB_3_8_17'
 subdir = 'src_files'
 temp = 'temporary'
 xmlfile = subdir + '\\' + filename + '.xml'
@@ -12,6 +12,7 @@ tempfile = subdir + '\\' + temp + '.xml'
 charmpath = 'charm/simple_io_channel/'
 analog = 'device_signal_tag'
 HART = 'hart_device_signal_tag'
+PROVOXpath = 'provox_control_io_card/provox_control_io_channel/'
 sischarmpath = 'sis_charm/simple_io_channel/device_signal_tag'
 referencedDSTs = set()
 
@@ -58,21 +59,23 @@ def getfrommodules(topleveltag):
 
 def unreferencedDSTs():
     u = DSTs - referencedDSTs
-    unrerenced.writelines(e + '\n' for e in u)
+    unreferenced.writelines(e + '\n' for e in u)
 
 
 if __name__ == '__main__':
     # steps to create the xml tree
-    convertfhxtoxml()
-    cleanupxml()
+    # convertfhxtoxml()
+    # cleanupxml()
 
     tree = et.parse(tempfile)
     root = tree.getroot()
     DSTs = {chm.text for chm in root.findall(charmpath + analog) if chm.text is not None}
+    # DSTs.update(chm.text for chm in root.findall(sischarmpath + analog) if chm.text is not None)
     DSTs.update([chm.attrib['name'] for chm in root.findall(charmpath + HART) if chm.attrib is not None])
+    DSTs.update([chm.text for chm in root.findall(PROVOXpath + analog) if chm.text is not None])
 
     report = open(filename + '_report.csv', mode='w')
-    unrerenced = open(filename + '_unref.csv', mode='w')
+    unreferenced = open(filename + '_unref.csv', mode='w')
 
     # class based modules
     getfrommodules('module_instance')
