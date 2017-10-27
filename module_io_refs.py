@@ -1,9 +1,9 @@
 import subprocess
-import re as re
-import xml.etree.ElementTree as et
-from os import remove
+import re
+from lxml.etree import XMLParser, parse, tounicode
+import os
 
-filename = 'AMODEL_DB_3_8_17'
+filename = "Sulfone_Sep"
 subdir = 'src_files'
 temp = 'temporary'
 xmlfile = subdir + '\\' + filename + '.xml'
@@ -17,34 +17,52 @@ sischarmpath = 'sis_charm/simple_io_channel/device_signal_tag'
 referencedDSTs = set()
 
 
-def convertfhxtoxml():
-    command = 'deltav_xml.bat' + ' ' + filename
-    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
-                         cwd=r"C:\Users\cburge\PycharmProjects\DeltaV Tools\\src_files")
-    stdout, stderr = p.communicate()
-    # print(stdout, stderr)
-    if p.returncode != 0:
-        raise stderr
+def convertfhxtoxml(forcerebuild=False):
+    if not os.path.isfile(xmlfile) or forcerebuild is True:
+        print("Generating xml from fhx file...")
+        command = 'deltav_xml.bat' + ' ' + filename
+        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
+                             cwd=r"C:\Users\cburge\PycharmProjects\DeltaV Tools\\src_files")
+        stdout, stderr = p.communicate()
+        print(stdout, stderr)
+        # remove escaped xml characters - probably overkill but we don't care about these
+        bads = re.compile(r'&#\d+?;')
+        # remove high/low unicodes not accepted by et.parse
+        out = open(tempfile, mode='w')
+        with open(xmlfile, encoding='utf-8') as file:
+            for l in file:
+                a = ''
+                for c in l:
+                    if 31 < ord(c) < 126:
+                        a += c
+                    a = re.sub(bads, '', a)
+                out.write(a + '\x0A')
+        if p.returncode != 0:
+            raise stderr
+        cwd = os.getcwd() + '\\'
+        out.close()
+        os.replace(cwd + tempfile, cwd + xmlfile)
+    else:
+        print('Using existing xml file: ' + xmlfile)
 
 
-def cleanupxml():
-    # remove escaped xml characters - probably overkill but we don't care about these
-    bads = re.compile(r'&#\d+?;')
-    # remove high/low unicodes not accepted by et.parse
-    out = open(tempfile, mode='w')
-    with open(xmlfile, encoding='utf-8') as file:
-        for l in file:
-            a = ''
-            for c in l:
-                if 31 < ord(c) < 126:
-                    a += c
-                a = re.sub(bads, '', a)
-            out.write(a + '\x0A')
+def linkexternalcomposites(elem):
+    # this is currently used to link linked composites within an sif_module back to the linked composite (class?)
+    # further back in the fhx given a function block unique identifier.  It is not understood why these composites
+    #  don't fall under the sif_module xml tag
+    fbuid = re.compile(r'__(?:[0-9]|[A-F]){8}_(?:[0-9]|[A-F]){8}__')
+    for fbs in elem.findall('function_block'):
+        if 'definition' in fbs.attrib:
+            if fbuid.match(fbs.attrib['definition']):
+                for fbdef in root.findall('sis_function_block_definition'):
+                    if fbdef.attrib['name'] == fbs.attrib['definition']:
+                        elem.append(fbdef)
 
 
 def getfrommodules(topleveltag):
-    # get all references to I/O from class baseed modules
+    # get all references to I/O from modules with xml tag: topleveltag
     for mod in root.findall(topleveltag):
+        linkexternalcomposites(mod)
         for tag in mod.iter('ref'):
             if tag.text is not None:
                 try:
@@ -64,14 +82,17 @@ def unreferencedDSTs():
 
 if __name__ == '__main__':
     # steps to create the xml tree
-    # convertfhxtoxml()
-    # cleanupxml()
+    convertfhxtoxml()
+    p = XMLParser()
+    root = parse(xmlfile, parser=p)
 
-    tree = et.parse(tempfile)
-    root = tree.getroot()
+    # adds standard DSTs
     DSTs = {chm.text for chm in root.findall(charmpath + analog) if chm.text is not None}
-    # DSTs.update(chm.text for chm in root.findall(sischarmpath + analog) if chm.text is not None)
+    # adds SIS DSTs
+    DSTs.update(chm.text for chm in root.findall(sischarmpath) if chm.text is not None)
+    # adds HART DSTs
     DSTs.update([chm.attrib['name'] for chm in root.findall(charmpath + HART) if chm.attrib is not None])
+    # adds PROVOX I/O DSTs
     DSTs.update([chm.text for chm in root.findall(PROVOXpath + analog) if chm.text is not None])
 
     report = open(filename + '_report.csv', mode='w')
@@ -88,18 +109,8 @@ if __name__ == '__main__':
 
     unreferencedDSTs()
 
-    # remove(tempfile)
+    # os.remove(tempfile)
 
-
-# get all references from non class based modules
-
-# get all I/O
-# old code that gets CIOC and baseplate numbers but is not really relevant for our excercise
-# for chm in root.findall('charm'):
-#     ioc = chm.find('simple_io_channel')
-#     dst = ioc.find('device_signal_tag')
-#     if dst.text is not None:
-#         print(chm.attrib['card_slot'], chm.attrib['controller'], dst.text)
 
 
 
