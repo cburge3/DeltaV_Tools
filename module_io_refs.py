@@ -3,7 +3,7 @@ import re
 from lxml.etree import XMLParser, parse, tounicode
 import os
 
-filename = "Sulfone_Sep"
+filename = "DeltaV_System20180313"
 subdir = 'src_files'
 temp = 'temporary'
 xmlfile = subdir + '\\' + filename + '.xml'
@@ -79,12 +79,25 @@ def unreferencedDSTs():
     u = DSTs - referencedDSTs
     unreferenced.writelines(e + '\n' for e in u)
 
+def PROVOXIOInfo():
+    IOinfo = open(filename + '_PROVOX_IO.csv', mode='w')
+    f = PROVOXpath.split('/')[0]
+    c = PROVOXpath.split('/')[1]
+    for card in root.findall(f):
+        for channel in card.findall(c):
+            for dst in channel.findall(analog):
+                if dst.text is not None:
+                    IOinfo.writelines(','.join([card.attrib['file'], card.attrib['card_slot'],
+                      channel.attrib['position'], dst.text]) + '\n')
+
 
 if __name__ == '__main__':
     # steps to create the xml tree
     convertfhxtoxml()
     p = XMLParser()
     root = parse(xmlfile, parser=p)
+
+    PROVOXIOInfo()
 
     # adds standard DSTs
     DSTs = {chm.text for chm in root.findall(charmpath + analog) if chm.text is not None}
@@ -99,15 +112,15 @@ if __name__ == '__main__':
     unreferenced = open(filename + '_unref.csv', mode='w')
 
     # class based modules
-    getfrommodules('module_instance')
-
-    # non class based modules
-    getfrommodules('module')
-
-    # safety modules
-    getfrommodules('sif_module')
-
-    unreferencedDSTs()
+    # getfrommodules('module_instance')
+    #
+    # # non class based modules
+    # getfrommodules('module')
+    #
+    # # safety modules
+    # getfrommodules('sif_module')
+    #
+    # unreferencedDSTs()
 
     # os.remove(tempfile)
 
