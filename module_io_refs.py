@@ -20,9 +20,10 @@ referencedDSTs = set()
 def convertfhxtoxml(forcerebuild=False):
     if not os.path.isfile(xmlfile) or forcerebuild is True:
         print("Generating xml from fhx file...")
+        cwd = os.getcwd() + '\\'
         command = 'deltav_xml.bat' + ' ' + filename
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
-                             cwd=r"C:\Users\cburge\PycharmProjects\DeltaV Tools\\src_files")
+                             cwd= cwd + subdir)
         stdout, stderr = p.communicate()
         print(stdout, stderr)
         # remove escaped xml characters - probably overkill but we don't care about these
@@ -39,7 +40,6 @@ def convertfhxtoxml(forcerebuild=False):
                 out.write(a + '\x0A')
         if p.returncode != 0:
             raise stderr
-        cwd = os.getcwd() + '\\'
         out.close()
         os.replace(cwd + tempfile, cwd + xmlfile)
     else:
