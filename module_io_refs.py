@@ -59,7 +59,7 @@ def linkexternalcomposites(elem):
                         elem.append(fbdef)
 
 
-def getfrommodules(topleveltag):
+def getfrommodules(topleveltag, report):
     # get all references to I/O from modules with xml tag: topleveltag
     for mod in root.findall(topleveltag):
         linkexternalcomposites(mod)
@@ -75,7 +75,7 @@ def getfrommodules(topleveltag):
                     pass
 
 
-def unreferencedDSTs():
+def unreferencedDSTs(unreferenced):
     u = DSTs - referencedDSTs
     unreferenced.writelines(e + '\n' for e in u)
 
@@ -87,7 +87,7 @@ def PROVOXIOInfo():
         for channel in card.findall(c):
             for dst in channel.findall(analog):
                 if dst.text is not None:
-                    IOinfo.writelines(','.join([card.attrib['file'], card.attrib['card_slot'],
+                    IOinfo.writelines(','.join([card.attrib['controller'], card.attrib['file'], card.attrib['card_slot'],
                       channel.attrib['position'], dst.text]) + '\n')
 
 
@@ -112,15 +112,15 @@ if __name__ == '__main__':
     unreferenced = open(filename + '_unref.csv', mode='w')
 
     # class based modules
-    # getfrommodules('module_instance')
-    #
-    # # non class based modules
-    # getfrommodules('module')
-    #
-    # # safety modules
-    # getfrommodules('sif_module')
-    #
-    # unreferencedDSTs()
+    getfrommodules('module_instance', report)
+
+    # non class based modules
+    getfrommodules('module', report)
+
+    # safety modules
+    getfrommodules('sif_module', report)
+
+    unreferencedDSTs(unreferenced)
 
     # os.remove(tempfile)
 
