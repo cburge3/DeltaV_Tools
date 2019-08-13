@@ -5,7 +5,7 @@ import lxml.etree
 import os
 import pandas as pd
 
-filename = "PC_GL_REG_ETOH"
+filename = "R14102"
 subdir = 'src_files'
 temp = 'temporary'
 xmlfile = subdir + '\\' + filename + '.xml'

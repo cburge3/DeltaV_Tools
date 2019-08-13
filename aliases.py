@@ -1,7 +1,7 @@
 import pandas as pd
 from setup import convertfhxtoxml
 
-filename = "PC_GL_REG_ETOH"
+filename = "R14102"
 
 if __name__ == '__main__':
     root = convertfhxtoxml(filename)

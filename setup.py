@@ -4,7 +4,15 @@ import lxml.etree
 import os
 
 
-def convertfhxtoxml(filename, forcerebuild=False):
+def getfhxschema(xmlroot):
+    s = xmlroot.find('.//schema')
+    z = {}
+    for m in s:
+        z[m.tag] = m.text
+    return z
+
+
+def convertfhxtoxml(filename, forcerebuild=False, ):
     subdir = 'src_files'
     temp = 'temporary'
     xmlfile = subdir + '\\' + filename + '.xml'
@@ -16,7 +24,6 @@ def convertfhxtoxml(filename, forcerebuild=False):
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
                              cwd= cwd + subdir)
         stdout, stderr = p.communicate()
-        print(stdout, stderr)
         # remove escaped xml characters - probably overkill but we don't care about these
         bads = re.compile(r'&#\d+?;')
         # remove high/low unicodes not accepted by et.parse
