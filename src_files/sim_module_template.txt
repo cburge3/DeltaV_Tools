@@ -1,0 +1,116 @@
+MODULE TAG="@module_name@" PLANT_AREA="@area_name@" CATEGORY=""
+ user="CBURGE" time=1562597227/* "08-Jul-2019 10:47:07" */
+{
+  DESCRIPTION="@description@"
+  PERIOD=1
+  CONTROLLER="@ctrl@"
+  PRIMARY_CONTROL_DISPLAY=""
+  INSTRUMENT_AREA_DISPLAY="MOD_FP"
+  DETAIL_DISPLAY=""
+  TYPE=""
+  SUB_TYPE=""
+  ASSIGN_BLOCKS_TO_H1_CARD=F
+  FUNCTION_BLOCK NAME="PDE1" DEFINITION="PDE"
+  {
+    DESCRIPTION="Positive Edge Trigger"
+    ID=3183483929
+    RECTANGLE= { X=320 Y=220 H=56 W=140 }
+  }
+  FUNCTION_BLOCK NAME="NDE1" DEFINITION="NDE"
+  {
+    DESCRIPTION="Negative Edge Trigger"
+    ID=3183516166
+    RECTANGLE= { X=320 Y=350 H=80 W=140 }
+  }
+  ATTRIBUTE NAME="SIM_ON" TYPE=BOOLEAN
+  {
+    CONNECTION=INPUT
+    RECTANGLE= { X=160 Y=240 H=20 W=70 }
+    CATEGORY { CATEGORY=COMMON }
+  }
+  @function_block@
+  FBD_ALGORITHM
+  {
+    WIRE SOURCE="SIM_ON" DESTINATION="NDE1/IN_D" { }
+    WIRE SOURCE="SIM_ON" DESTINATION="PDE1/IN_D" { }
+@wire_template@
+  }
+  ATTRIBUTE_INSTANCE NAME="MCOMMAND"
+  {
+    VALUE
+    {
+      SET="$module_states"
+      STRING_VALUE="In Service"
+      CHANGEABLE=F
+    }
+  }
+  ATTRIBUTE_INSTANCE NAME="MSTATE"
+  {
+    VALUE
+    {
+      SET="$module_states"
+      STRING_VALUE="In Service"
+      CHANGEABLE=F
+    }
+  }
+  ATTRIBUTE_INSTANCE NAME="MERROR"
+  {
+    VALUE
+    {
+      ENUM_SET="$module_error_opts"
+    }
+  }
+  ATTRIBUTE_INSTANCE NAME="MSTATUS"
+  {
+    VALUE
+    {
+      ENUM_SET="$module_status_opts"
+    }
+  }
+  ATTRIBUTE_INSTANCE NAME="MSTATUS_MASK"
+  {
+    VALUE
+    {
+      ENUM_SET="$module_status_opts"
+    }
+  }
+  ATTRIBUTE_INSTANCE NAME="MERROR_MASK"
+  {
+    VALUE
+    {
+      ENUM_SET="$module_error_opts"
+    }
+  }
+  ATTRIBUTE_INSTANCE NAME="BAD_ACTIVE"
+  {
+    VALUE { CV=F }
+  }
+  ATTRIBUTE_INSTANCE NAME="ABNORM_ACTIVE"
+  {
+    VALUE { CV=F }
+  }
+  ATTRIBUTE_INSTANCE NAME="VERSION"
+  {
+    VALUE { CV=1 }
+  }
+  ATTRIBUTE_INSTANCE NAME="BLOCK_ERR"
+  {
+    VALUE
+    {
+      ENUM_SET="$blk_err_opts"
+    }
+  }
+  ATTRIBUTE_INSTANCE NAME="EXEC_TIME"
+  {
+    VALUE { CV=0 }
+  }
+  ATTRIBUTE_INSTANCE NAME="ONTIME"
+  {
+    VALUE { CV=F }
+  }
+  ATTRIBUTE_INSTANCE NAME="SIM_ON"
+  {
+    VALUE { CV=F }
+  }
+  @action_block@
+}
