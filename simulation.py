@@ -168,7 +168,7 @@ headers = {'@version@': 'version_str', '@mv@': 'major_version', '@mn@': 'minor_v
            '@bv@': 'build_version', '@bid@': 'build_id'}
 for k in headers:
     fhx_template = fhx_template.replace(k, schema[headers[k]])
-output_file = open(filename + '_simulation.fhx', 'w')
+output_file = open('outputs\\' + filename + '_simulation.fhx', 'w')
 output_file.write(fhx_template)
 
 

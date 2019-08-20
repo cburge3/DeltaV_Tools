@@ -12,18 +12,20 @@ def getfhxschema(xmlroot):
     return z
 
 
-def convertfhxtoxml(filename, forcerebuild=False, ):
-    subdir = 'src_files'
+def convertfhxtoxml(filename, forcerebuild=False):
+    subdir = 'inputs'
     temp = 'temporary'
     xmlfile = subdir + '\\' + filename + '.xml'
     tempfile = subdir + '\\' + temp + '.xml'
     if not os.path.isfile(xmlfile) or forcerebuild is True:
         print("Generating xml from fhx file...")
         cwd = os.getcwd() + '\\'
-        command = 'deltav_xml.bat' + ' ' + filename
+        print(cwd)
+        command = '..\\src_files\\deltav_xml.bat' + ' ' + filename
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
-                             cwd= cwd + subdir)
+                             cwd= cwd + 'src_files')
         stdout, stderr = p.communicate()
+        print(stdout, stderr)
         # remove escaped xml characters - probably overkill but we don't care about these
         bads = re.compile(r'&#\d+?;')
         # remove high/low unicodes not accepted by et.parse

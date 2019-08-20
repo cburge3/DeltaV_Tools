@@ -56,7 +56,7 @@ if __name__ == '__main__':
         table.set_index('unit instance')
         data_tables.append(table)
     for t in range(0,len(table_names)):
-        data_tables[t].to_csv(table_names[t] + ".csv")
+        data_tables[t].to_csv("\\outputs\\" + table_names[t] + ".csv")
 
 
 
