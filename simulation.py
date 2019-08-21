@@ -1,7 +1,7 @@
 from setup import convertfhxtoxml, getfhxschema
 from math import trunc
 
-filename = "CDC_DEMO"
+filename = "ICT"
 root = convertfhxtoxml(filename)
 
 data = {}
@@ -71,15 +71,21 @@ print('Building module class library...')
 for c in root.findall('module_class'):
     io_blocks = []
     for fbs in ['EDC','DC','AI','AIWCALARM','AO','PID','PIDWCALARM','DI','DIWCALARM','DO']:
-        b = (c.find('.//function_block[@definition=\"' + fbs + '\"]'))
+        b = []
+        b = (c.findall('.//function_block[@definition=\"' + fbs + '\"]'))
         if b is not None:
-            io_blocks.append([b.attrib['definition'],b.attrib['name']])
+            # in the event that there are duplicates of a function block in the module
+            for block in b:
+                io_blocks.append([block.attrib['definition'], block.attrib['name']])
     class_library[c.attrib['name']] = io_blocks
 
 print('Linking instances to parent classes...')
 for mod in root.findall('module_instance'):
     parent_class = mod.attrib['module_class']
     parent_area = mod.attrib["plant_area"].split('/')[0]
+    # module templates will end up in this list with an area of "" so we drop them here
+    if parent_area == '':
+        continue
     module_name = mod.attrib["tag"]
     controller = mod.find(".//controller").text
     if parent_area not in list(data):
@@ -118,6 +124,9 @@ for a in list(data):
         if ctrls.count(z) > max_count:
             max_count = ctrls.count(z)
             best_ctrl = z
+    # if no modules are assigned to a controller in the area don't assign the simulation either
+    if best_ctrl is None:
+        best_ctrl = ''
     area_sim = area_sim.replace('@ctrl@', best_ctrl)
     index = 0
     running_total_actblocks = 0
