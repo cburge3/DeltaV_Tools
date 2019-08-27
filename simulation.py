@@ -1,7 +1,7 @@
 from setup import convertfhxtoxml, getfhxschema
 from math import trunc
 
-filename = "ICT"
+filename = "CELL2Subset"
 root = convertfhxtoxml(filename)
 
 data = {}
@@ -107,13 +107,15 @@ for a in list(data):
     ctrls = []
     # handle each module
     for m in mlist:
-        # add 1 instance of controller to the list of controllers
-        ctrls.append(m[2])
-        for b in class_library[m[1]]:
-            # compile entirety of needed logic with the logic templates
-            continuous_logic += c_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
-            oneshot_on_logic += oon_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
-            oneshot_off_logic += ooff_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
+        # ignore modules that are unassigned to a node
+        if m[2] is not None:
+            # add 1 instance of controller to the list of controllers
+            ctrls.append(m[2])
+            for b in class_library[m[1]]:
+                # compile entirety of needed logic with the logic templates
+                continuous_logic += c_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
+                oneshot_on_logic += oon_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
+                oneshot_off_logic += ooff_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
     max_count = 0
     best_ctrl = ''
     continuous_logic = continuous_logic.split('\n')
