@@ -1,7 +1,7 @@
 from setup import convertfhxtoxml, getfhxschema
 from math import trunc
 
-filename = "CELL2Subset"
+filename = "A_419"
 root = convertfhxtoxml(filename)
 
 data = {}
@@ -49,8 +49,8 @@ oon_logic = {
     'AIWCALARM': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2;\n',
     'DO': '\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n',
     'AI': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
-    'PIDWCALARM': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2;\n',
-    'PID': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2;\n',
+    'PIDWCALARM': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
+    'PID': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
     'DI': '\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n\'//@mod@/@block@/SIMULATE_D.SSTATUS\' := GOOD;\n',
     'DC': '\'//@mod@/DC_CTRL/IGN_PV.CV\' := 1; \n\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n'
 }
