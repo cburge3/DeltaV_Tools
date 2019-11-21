@@ -1,6 +1,8 @@
 import pandas as pd
 from setup import convertfhxtoxml
 
+"""Export alias tables from units along with their descriptions"""
+
 filename = "R14102"
 
 if __name__ == '__main__':

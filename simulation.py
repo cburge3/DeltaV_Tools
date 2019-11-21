@@ -1,7 +1,10 @@
 from setup import convertfhxtoxml, getfhxschema
 from math import trunc
 
-filename = "A_419"
+"""This script is to generate simple tieback code for any class based modules in the configuration given
+in <filename>.fhx"""
+
+filename = "A_423"
 root = convertfhxtoxml(filename)
 
 data = {}
@@ -32,10 +35,11 @@ wire_template = '    WIRE SOURCE="@block_output@" DESTINATION="ACT@block@/IN_D" 
 
 c_logic = {
     'EDC': '',
-    'AO': '\'//@mod@/@block@/SIMULATE.SVALUE\' := \'//@mod@/@block@/OUT.CV\';\n',
+    # 'AO': '\'//@mod@/@block@/SIMULATE.SVALUE\' := \'//@mod@/@block@/OUT.CV\';\n',
+    'AO': '\'//@mod@/@block@/SIMULATE.SVALUE\' := \'//@mod@/@block@/SP.CV\';\n',
     'DIWCALARM': '',
     'AIWCALARM': '',
-    'DO': '\'//@mod@/@block@/SIMULATE_D.SVALUE\' := \'//@mod@/@block@/OUT_D.CV\';\n',
+    'DO': '\'//@mod@/@block@/SIMULATE_D.SVALUE\' := \'//@mod@/@block@/SP_D.CV\';\n',
     'AI': '',
     'PIDWCALARM': '',
     'PID': '',
@@ -70,7 +74,7 @@ ooff_logic = {
 print('Building module class library...')
 for c in root.findall('module_class'):
     io_blocks = []
-    for fbs in ['EDC','DC','AI','AIWCALARM','AO','PID','PIDWCALARM','DI','DIWCALARM','DO']:
+    for fbs in ['EDC', 'DC', 'AI', 'AIWCALARM', 'AO', 'PID', 'PIDWCALARM', 'DI', 'DIWCALARM', 'DO']:
         b = []
         b = (c.findall('.//function_block[@definition=\"' + fbs + '\"]'))
         if b is not None:
@@ -92,7 +96,7 @@ for mod in root.findall('module_instance'):
         data[parent_area] = []
     data[parent_area].append([module_name, parent_class, controller])
 
-
+# TODO find non-class based control modules - maybe
 for a in list(data):
     print('Creating simulation for area \"{}\" '.format(a))
     continuous_logic = ''

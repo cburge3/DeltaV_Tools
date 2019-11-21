@@ -4,6 +4,9 @@ import lxml.etree
 import os
 
 
+"""Common functions used by other scripts here"""
+
+
 def getfhxschema(xmlroot):
     s = xmlroot.find('.//schema')
     z = {}
@@ -20,12 +23,13 @@ def convertfhxtoxml(filename, forcerebuild=False):
     if not os.path.isfile(xmlfile) or forcerebuild is True:
         print("Generating xml from fhx file...")
         cwd = os.getcwd() + '\\'
-        print(cwd)
         command = '..\\src_files\\deltav_xml.bat' + ' ' + filename
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
                              cwd= cwd + 'src_files')
         stdout, stderr = p.communicate()
-        print(stdout, stderr)
+        print("XML Parsing: " + stdout.decode())
+        if not stderr is None:
+            print(stderr.decode())
         # remove escaped xml characters - probably overkill but we don't care about these
         bads = re.compile(r'&#\d+?;')
         # remove high/low unicodes not accepted by et.parse

@@ -3,6 +3,7 @@ import re
 
 filename = "R14102"
 # TODO find AT interlocks in PID type modules
+# Also remember what this script is for
 ilock_name = re.compile(r'DCC1\$I_[A-z]*_?(\d+)')
 
 root = convertfhxtoxml(filename)
@@ -32,7 +33,7 @@ for mod in root.findall("module_instance"):
 
 # build report
 
-report = open(filename + "_Interlocks.csv", 'w')
+report = open("outputs\\" + filename + "_Interlocks.csv", 'w')
 report.write(','.join(['module', 'num', desc, exp])+'\n')
 
 for m in list(data):

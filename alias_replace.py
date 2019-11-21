@@ -1,5 +1,5 @@
 subdir = 'inputs'
-inputs = subdir + '\\' + 'PH_423_COMPLETE.fhx'
+inputs = subdir + '\\' + 'PH_423_PURGES_3G.fhx'
 alias_file = subdir + '\\' + '419_aliases.txt'
 input_file = open(inputs, mode='r', encoding='utf-16')
 out = input_file.read()
