@@ -14,23 +14,41 @@ import re
 format_type = dict()
 format_type['csv'] = True
 format_type['docx'] = False
-format_type['code_verify'] = False
-filename = "PURGES_419"
+options = dict()
+options['run_logic_only'] = True
+filename = "PH_423"
+logic_lookup = dict()
 root = convertfhxtoxml(filename, forcerebuild=True)
-print("Parsing SFC...")
+unclassed_object = re.compile('__[\d\w]{8}_[\d\w]{8}__')
 
 fb_defs = root.findall('.//function_block_definition')
 sfcs = list(filter(lambda a: not a.find('[sfc_algorithm]') is None, fb_defs))
 
-if format_type['code_verify']:
-    comments = re.compile('(?:\(\*[\s\S]*?\*\))|(?:REM.*)')
+# TODO handle other types of SFCs other than just phase run logic
+
+if options['run_logic_only']:
+    phase_classes = root.findall('.//batch_equipment_phase_class')
+    for phase in phase_classes:
+        logic_lookup[phase.find(".//function_block[@name='RUN_LOGIC']").attrib['definition']] = phase.attrib['name']
+    sfcs = list(filter(lambda a: unclassed_object.match(a.attrib['name']), sfcs))
+
 for sfc in sfcs:
+    temp_filename = ''
+    try:
+        temp_filename = logic_lookup[sfc.attrib['name']]
+    except KeyError:
+        print("No SFC parent found for this SFC")
+    if temp_filename != '':
+        filename = temp_filename
+    # print("Parsing SFC {0} {1} of {2}".format(sfc.attrib['name'], sfcs.index(sfc) + 1, len(sfcs)))
+    print("Parsing SFC {0} {1} of {2}".format(temp_filename, sfcs.index(sfc) + 1, len(sfcs)))
     step_connections = sfc.findall('.//step_transition_connection')
     t_connections = sfc.findall('.//transition_step_connection')
     steps = sfc.findall('.//step')
     transitions = sfc.findall('.//transition')
 
     trans_conn_data = defaultdict(list)
+    # parse transitions
     for transition in transitions:
         t_name = transition.attrib['name']
         for tcs in t_connections:
@@ -51,10 +69,37 @@ for sfc in sfcs:
         t = doc.add_table(rows=1, cols=len(action_column_headings))
         header = t.rows[0].cells
     if format_type['csv']:
-        csv_out = open('outputs\\' + filename + '.csv', 'w', newline='')
-        csv_writer = csv.writer(csv_out)
-        csv_writer.writerow(['step name', 'action name', 'action description', 'action qualifier', 'action delay', 'action expression',
-                            'action confirm'])
+        csv_out_actions = open('outputs\\' + filename + '_actions.csv', 'w', newline='')
+        csv_out_transitions = open('outputs\\' + filename + '_transitions.csv', 'w', newline='')
+        csv_writer_actions = csv.writer(csv_out_actions)
+        csv_writer_actions.writerow(['step name', 'action name', 'action description', 'action qualifier',
+                                     'action delay', 'action expression', 'action confirm'])
+        csv_writer_trans = csv.writer(csv_out_transitions)
+        csv_writer_trans.writerow(
+            ['transition name', 'transition description', 'condition', 'upstream connections',
+             'downstream connections'])
+    for tr in transitions:
+        t_name = ''
+        t_expression = ''
+        t_previous = ''
+        t_previous_all = []
+        t_description = ''
+        t_name = tr.attrib['name']
+        if tr.find('.//expression') is not None:
+            t_expression = tr.find('.//expression').text
+        if tr.find('.//description') is not None:
+            t_description = tr.find('.//description').text
+        for s in step_conn_data.keys():
+            if t_name in step_conn_data[s]:
+                t_previous_all.append(s)
+        t_previous = ','.join(t_previous_all)
+        t_next = ','.join(trans_conn_data[t_name])
+        # csv_writer_trans.writerow('this is a row')
+        # csv_writer_trans.writerow(
+        #     ['transition name', 'transition description', 'condition', 'upstream connections',
+        #      'downstream connections'])
+        if format_type['csv']:
+            csv_writer_trans.writerow([t_name, t_description, t_expression, t_previous, t_next])
     for step in steps:
         s_name = step.attrib['name']
         actions = step.findall('.//action')
@@ -84,23 +129,8 @@ for sfc in sfcs:
                 a_confirm = action.find('.//confirm_expression').text
             if action.find('.//description') is not None:
                 a_description = action.find('.//description').text
-            if format_type['code_verify']:
-                print('original')
-                print(a_expression)
-                # it's much easier to find expressions with the silly whole line ============ comments stripped
-                cleaned = comments.sub('',a_expression)
-                print('cleaned')
-                # lines =
-                print(cleaned.split('\n'))
-                print('matches')
-                # print(matches)
-                # for m in matches:
-                #     # if is an assignment expression NOT a comparison
-                #     if m[1] is not '':
-                #         print(s_name + ' ' + a_name + ' ' + m[0])
-            # do csv stuff
             if format_type['csv']:
-                csv_writer.writerow([s_name, a_name, a_description, a_qualifier, a_delay, a_expression, a_confirm])
+                csv_writer_actions.writerow([s_name, a_name, a_description, a_qualifier, a_delay, a_expression, a_confirm])
             # make docx table
             if format_type['docx']:
                 action_row = t.add_row().cells
@@ -129,8 +159,6 @@ for sfc in sfcs:
                         my_expression = tr.find('expression').text
                     trans_row[1].text = my_expression
                     trans_row[1].merge(trans_row[4])
-
-
 if format_type['docx']:
     doc.save('outputs\\SFC_report.docx')
 

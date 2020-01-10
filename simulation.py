@@ -74,6 +74,7 @@ ooff_logic = {
 print('Building module class library...')
 for c in root.findall('module_class'):
     io_blocks = []
+    # this is a list of all IO touching function blocks although there may be others
     for fbs in ['EDC', 'DC', 'AI', 'AIWCALARM', 'AO', 'PID', 'PIDWCALARM', 'DI', 'DIWCALARM', 'DO']:
         b = []
         b = (c.findall('.//function_block[@definition=\"' + fbs + '\"]'))
