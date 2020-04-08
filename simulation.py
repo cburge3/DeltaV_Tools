@@ -4,8 +4,8 @@ from math import trunc
 """This script is to generate simple tieback code for any class based modules in the configuration given
 in <filename>.fhx"""
 
-filename = "A_423"
-root = convertfhxtoxml(filename)
+filename = "A_340"
+root = convertfhxtoxml(filename, forcerebuild=True)
 
 data = {}
 class_library = {}
@@ -50,7 +50,7 @@ oon_logic = {
     'EDC': '\'//@mod@/@block@/IGNORE_PV.CV\' := 1; \n\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n',
     'AO': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2;\n',
     'DIWCALARM': '\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE_D.SSTATUS\' := GOOD;\n',
-    'AIWCALARM': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2;\n',
+    'AIWCALARM': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
     'DO': '\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n',
     'AI': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
     'PIDWCALARM': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
