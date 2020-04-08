@@ -140,7 +140,7 @@ for mod in data:
         else:
             ilk['cause_tag'] = '????'
 
-        trip =
+        trip = 'something'
 
 
 
