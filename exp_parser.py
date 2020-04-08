@@ -232,8 +232,9 @@ class ExpressionParser:
             for a in self.actions:
                 writer.writerow(a)
 
-P = ExpressionParser()
-P.give_datafiles(csv_file)
-P.check_against_rules()
-P.print_table()
-# P.show_steps()
+if '__name__' == '__main__':
+    P = ExpressionParser()
+    P.give_datafiles(csv_file)
+    P.check_against_rules()
+    P.print_table()
+    # P.show_steps()

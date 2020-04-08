@@ -15,12 +15,14 @@ root = convertfhxtoxml(source_filename, forcerebuild=False)
 
 mods = root.findall(".//module_instance[@tag]")
 
-mods_nc = (root.findall(".//module[@tag]"))
+# mods_nc = (root.findall(".//module[@tag]"))
+
+mods += root.findall(".//module[@tag]")
 
 # this is a critical expression to find any possible attributes that may be interlock related for class-based modules
 paths = re.compile(r'(AT\d)|(DCC\d)|(CND\d{1,2})')
 
-delay_ons = re.compile('(I|T)_DELAY_ON(\d+)', re.IGNORECASE)
+delay_ons = re.compile('(I|T)_DELAY_?ON(\d+)', re.IGNORECASE)
 expression = re.compile('(I|T)_EXP(\d+)', re.IGNORECASE)
 description = re.compile('(I|T)_DESC_?(\d+)', re.IGNORECASE)
 
@@ -84,67 +86,57 @@ for mod in mods:
                 if z['number'] != num:
                     continue
                 else:
-                    z['on_delay'] = [field]
+                    z['on_delay'] = field
                     num_exists = True
             if not num_exists:
-                data[-1]['ilk_data'].append({'number': num, 'on_delay': [field]})
+                data[-1]['ilk_data'].append({'number': num, 'on_delay': field})
             continue
 
 
+# TODO if pieces of an expression exist in class instances we may need to go back to the
+#  class to put together a full interlock expression
 
-# add non classed based module interlock data
-# if pieces of an expression exist in class instances we may need to go back to the class to put together a full
-# interlock
-
-for mod in mods_nc:
-    ais = mod.findall(".//attribute_instance[@name]")
-    ilk_data = []
-    for z in ais:
-        if paths.match(z.attrib['name']) is not None:
-            ilk_data.append(z)
-    if len(ilk_data) > 0:
-        data.append({'module': mod.attrib['tag']})
-        data[-1]['description'] = mod.find(".//description").text
-        data[-1]['ilk_data'] = []
-    else:
-        continue
-    for b in ilk_data:
-        params.write(b.attrib['name'] + '\n')
 
 # we've extracted the raw data from the fhx now do some post-processing to convert it to a human readable format
 # filter modules out of the report that don't actually have interlocks configured
 
-keys = ['description', 'number', 'raw_expression']
+keys = set(['description', 'number', 'raw_expression'])
 
 for mod in data:
+    mod['ilk_data'] = [ilk for ilk in mod['ilk_data'] if keys.issubset(ilk.keys())]
+    mod['ilk_data'] = [ilk for ilk in mod['ilk_data'] if ilk['description'] != "Not Used" and
+                       ilk['description'][0] != str(ilk['number'])]
     for ilk in mod['ilk_data']:
-        for k in keys:
-            if k not in ilk.keys():
-                print(k, ilk)
-                mod['ilk_data'].remove(ilk)
-    for ilk in mod['ilk_data']:
-        if ilk['description'] == "Not Used" or ilk['description'] == ilk['number']:
-            mod['ilk_data'].remove(ilk)
+        if 'on_delay' not in ilk.keys():
+            ilk['on_delay'] = 0
 
-    # placeholder code to get the first tag out of an expression
+# remove empty ilk_data entries
 
-Parser = ExpressionParser()
+data = list(filter(lambda a: a['ilk_data'] != [], data))
+
+# sort ilk_data entries by #
+for mod in data:
+    mod['ilk_data'].sort(key=lambda a: int(a['number']))
+
+
+# placeholder code to get the first tag out of an expression
+
+# Parser = ExpressionParser()
 first_tag = re.compile(r'\d{3}_\w{1,3}-\d{1,3}')
 
 for mod in data:
     for ilk in mod['ilk_data']:
+        ilk['cause_tag'] = []
         # populate cause tag
         tag = first_tag.search(ilk['raw_expression'])
         if tag is not None:
-            ilk['cause_tag'] = tag.string
+            ilk['cause_tag'].append(tag.group())
         else:
-            ilk['cause_tag'] = '????'
+            ilk['cause_tag'].append('????')
 
-        trip = 'something'
-
-
-
-
+        trip = ['something']
+        ilk['trip'] = trip
+        ilk['fail_state'] = "OFFFFF"
 
         # Create the interlock report from the collected data
 
@@ -195,11 +187,17 @@ ilk_dummy_data = [{'number': '1', 'description': ['interlock 1 is bad', '&&'], '
 max_col = 10
 for mod in range(0,len(data)):
     col = 1
-    worksheet.write(row, col, mod+1, general)
+    worksheet.write(row, col, mod + 1, general)
     worksheet.write(row, col + 1, data[mod]['module'], general)
+    worksheet.write(row + 1, col, '', general)
     worksheet.write(row + 1, col + 1, data[mod]['description'], general)
     # for cnd in ilk_dummy_data:
+    idx = 0
+    print(data[mod])
     for cnd in data[mod]['ilk_data']:
+        if idx > 1:
+            worksheet.write(row, col, '', general)
+            worksheet.write(row, col + 1, '', general)
         lines = len(cnd['description'])
         worksheet.write(row, col + 2, cnd['number'], general)
         for l in range(0,lines):
@@ -209,6 +207,11 @@ for mod in range(0,len(data)):
         worksheet.write(row, col + 6, cnd['on_delay'], general)
         worksheet.write(row, col + 7, cnd['fail_state'], general)
         row += lines
+        idx += 1
+    if idx < 2:
+        for cell in range(3, max_col):
+            worksheet.write(row, cell, '', general)
+        row += 1
     for cell in range(1, max_col):
         worksheet.write(row, cell, '', spacer)
     row += 1
