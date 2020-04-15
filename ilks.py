@@ -1,6 +1,6 @@
 import xlsxwriter
 from setup import convertfhxtoxml
-from exp_parser import ExpressionParser
+from documentation import ExpressionParser
 import re
 
 data = []
@@ -15,8 +15,6 @@ root = convertfhxtoxml(source_filename, forcerebuild=False)
 
 mods = root.findall(".//module_instance[@tag]")
 
-# mods_nc = (root.findall(".//module[@tag]"))
-
 mods += root.findall(".//module[@tag]")
 
 # this is a critical expression to find any possible attributes that may be interlock related for class-based modules
@@ -26,85 +24,62 @@ delay_ons = re.compile('(I|T)_DELAY_?ON(\d+)', re.IGNORECASE)
 expression = re.compile('(I|T)_EXP(\d+)', re.IGNORECASE)
 description = re.compile('(I|T)_DESC_?(\d+)', re.IGNORECASE)
 
+
+def add_ilk_info_to_database(node, regex_search, field_search, data_entry, field_name, is_list=False):
+    param_name = node.attrib['name']
+    a = regex_search.search(param_name)
+    num_exists = False
+    if a is not None:
+        num = str(a.groups()[1])
+        field = node.find(field_search).text
+        if is_list:
+            placeholder = [field]
+        else:
+            placeholder = field
+        for q in data_entry:
+            if q['number'] != num:
+                continue
+            else:
+                num_exists = True
+            if num_exists and field_name not in q.keys():
+                q[field_name] = placeholder
+        if not num_exists:
+            data_entry.append({'number': str(num), field_name: placeholder})
+    return data_entry
+
 # find all modules in the fhx
 
 for mod in mods:
     ais = mod.findall(".//attribute_instance[@name]")
-    ilk_data_nodes = []
-    for z in ais:
-        if paths.match(z.attrib['name']) is not None:
-            ilk_data_nodes.append(z)
-    if len(ilk_data_nodes) > 0:
-        data.append({'module': mod.attrib['tag']})
-        data[-1]['description'] = mod.find(".//description").text
-        data[-1]['ilk_data'] = []
-    else:
-        continue
-
-    # these 3 similar sections below may be able to be compressed into a single function
-    # populate database with description data
-
-    for b in ilk_data_nodes:
-        param_name = b.attrib['name']
-        params.write(param_name + '\n')
-        d = description.search(param_name)
-        if d is not None:
-            num = int(d.groups()[1])
-            num_exists = False
-            field = b.find('.//cv').text
-            for z in data[-1]['ilk_data']:
-                if z['number'] != str(num):
-                    continue
-                else:
-                    z['description'] = [field]
-                    num_exists = True
-            if not num_exists:
-                data[-1]['ilk_data'].append({'number': str(num), 'description': [field]})
-            continue
+    params.write(mod.attrib['tag'] + '  ' + str(len(ais)) + '\n')
+    if 'module_class' in mod.attrib.keys():
+        class_name = mod.attrib['module_class']
+        class_root = root.find(".//module_class[@name='" + class_name + "']")
+        class_based_attrs = class_root.findall(".//attribute_instance[@name]")
+        ais += class_root.findall(".//attribute_instance[@name]")
+    data.append({'module': mod.attrib['tag']})
+    data[-1]['description'] = mod.find(".//description").text
+    data[-1]['ilk_data'] = []
+    #
+    for b in ais:
+        # populate database with description data
+        data[-1]['ilk_data'] = add_ilk_info_to_database(b, description, './/cv', data[-1]['ilk_data'], 'description',
+                                                        is_list=True)
         # populate database with expression data
-        e = expression.search(param_name)
-        if e is not None:
-            num = str(e.groups()[1])
-            num_exists = False
-            field = b.find('.//expression').text
-            for z in data[-1]['ilk_data']:
-                if z['number'] != num:
-                    continue
-                else:
-                    z['raw_expression'] = field
-                    num_exists = True
-            if not num_exists:
-                data[-1]['ilk_data'].append({'number': num, 'raw_expression': field})
-            continue
+        data[-1]['ilk_data'] = add_ilk_info_to_database(b, expression, './/expression', data[-1]['ilk_data'],
+                                                        'raw_expression', is_list=False)
         # populate database with delay on data
-        do = delay_ons.search(param_name)
-        if do is not None:
-            num = str(do.groups()[1])
-            num_exists = False
-            field = b.find('.//cv').text
-            for z in data[-1]['ilk_data']:
-                if z['number'] != num:
-                    continue
-                else:
-                    z['on_delay'] = field
-                    num_exists = True
-            if not num_exists:
-                data[-1]['ilk_data'].append({'number': num, 'on_delay': field})
-            continue
-
-
-# TODO if pieces of an expression exist in class instances we may need to go back to the
-#  class to put together a full interlock expression
-
+        data[-1]['ilk_data'] = add_ilk_info_to_database(b, delay_ons, './/cv', data[-1]['ilk_data'], 'on_delay',
+                                                        is_list=False)
 
 # we've extracted the raw data from the fhx now do some post-processing to convert it to a human readable format
 # filter modules out of the report that don't actually have interlocks configured
 
-keys = set(['description', 'number', 'raw_expression'])
+keys = {'description', 'number', 'raw_expression'}
 
 for mod in data:
     mod['ilk_data'] = [ilk for ilk in mod['ilk_data'] if keys.issubset(ilk.keys())]
-    mod['ilk_data'] = [ilk for ilk in mod['ilk_data'] if ilk['description'] != "Not Used" and
+    mod['ilk_data'] = [ilk for ilk in mod['ilk_data'] if ilk['description'][0] != "Not Used" and
                        ilk['description'][0] != str(ilk['number'])]
     for ilk in mod['ilk_data']:
         if 'on_delay' not in ilk.keys():
@@ -117,7 +92,6 @@ data = list(filter(lambda a: a['ilk_data'] != [], data))
 # sort ilk_data entries by #
 for mod in data:
     mod['ilk_data'].sort(key=lambda a: int(a['number']))
-
 
 # placeholder code to get the first tag out of an expression
 
@@ -140,11 +114,11 @@ for mod in data:
 
         # Create the interlock report from the collected data
 
-headers = [['ILOCK','MODULE Name','','INITIATING CONDITION(CAUSE)','','','Device','','',''],
-['REF NO.','Module Description','NO.','Interlock Description','DeltaV Tag Name','State(TRIP)',
-            'Delay','Fail State','COMMENTS','TEST RESULTS']]
+headers = [['ILOCK', 'MODULE Name', '', 'INITIATING CONDITION(CAUSE)', '', '', 'Device', '', '', ''],
+           ['REF NO.', 'Module Description', 'NO.', 'Interlock Description', 'DeltaV Tag Name', 'State(TRIP)',
+            'Delay', 'Fail State', 'COMMENTS', 'TEST RESULTS']]
 
-    # Create a workbook and add a worksheet.
+# Create a workbook and add a worksheet.
 workbook = xlsxwriter.Workbook("outputs\\" + source_filename + "_interlocks.xlsx")
 
 general = workbook.add_format({'font_name': 'Tahoma', 'font_size': 11})
@@ -177,15 +151,15 @@ for i in headers:
         col += 1
     row += 1
 
-# description, cause tag, and state are all multiline fields to allow chained conditions
+# description, cause tag, and state are all multi-line fields to allow chained conditions
 
 ilk_dummy_data = [{'number': '1', 'description': ['interlock 1 is bad', '&&'], 'cause_tag': ['423_FC-55', '423_FC-66'],
-                   'trip': ['ilk_expression', 'PV < 75'],'on_delay': '2', 'fail_state': 'Close'},
-                {'number': '2', 'description': ['interlock 2 is OK'], 'cause_tag': ['340_FI-11'],
-                 'trip': ['ilk_expression'], 'on_delay': '2', 'fail_state': 'Close'}]
+                   'trip': ['ilk_expression', 'PV < 75'], 'on_delay': '2', 'fail_state': 'Close'},
+                  {'number': '2', 'description': ['interlock 2 is OK'], 'cause_tag': ['340_FI-11'],
+                   'trip': ['ilk_expression'], 'on_delay': '2', 'fail_state': 'Close'}]
 
-max_col = 10
-for mod in range(0,len(data)):
+max_col = len(headers[0]) + 1
+for mod in range(0, len(data)):
     col = 1
     worksheet.write(row, col, mod + 1, general)
     worksheet.write(row, col + 1, data[mod]['module'], general)
@@ -193,14 +167,13 @@ for mod in range(0,len(data)):
     worksheet.write(row + 1, col + 1, data[mod]['description'], general)
     # for cnd in ilk_dummy_data:
     idx = 0
-    print(data[mod])
     for cnd in data[mod]['ilk_data']:
         if idx > 1:
             worksheet.write(row, col, '', general)
             worksheet.write(row, col + 1, '', general)
         lines = len(cnd['description'])
         worksheet.write(row, col + 2, cnd['number'], general)
-        for l in range(0,lines):
+        for l in range(0, lines):
             worksheet.write(row + l, col + 3, cnd['description'][l], general)
             worksheet.write(row + l, col + 4, cnd['cause_tag'][l], general)
             worksheet.write(row + l, col + 5, cnd['trip'][l], general)

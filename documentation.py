@@ -1,6 +1,7 @@
 import re
 import csv
 from setup import convertfhxtoxml
+from parser import ExpressionParser
 
 # TODO
 # CR = code review , Doc = Documentation
@@ -16,17 +17,14 @@ from setup import convertfhxtoxml
 # Delay expressions that are either for the containing action or an action in a different step
 # Pull IF/THEN pairs out before checking assignment operators
 
-xml = '324_EM-A02-XFR'
-root = convertfhxtoxml(xml, forcerebuild=False)
-csv_file = '324_EM-A02-XFR_compiled'
-
 
 # this is only meant to handle 1 SFC at a time
 
 # ideally this can be modified to parse expressions and sub in English language independent of an SFC context
 
-class ExpressionParser:
+class CodeDocumenter(ExpressionParser):
     def __init__(self, **kwargs):
+        super(ExpressionParser).__init__()
         self.comment = re.compile('(?:\(\*[\s\S]*?\*\))|(?:REM.*)')
         self.keywords = 'ABS,EXP,MAX,SHL,ACOS,EXPT,MIN,SHR,AND,EUP,MOD,SIGN,ASIN,FALSE,NOT,SIN,ASR16,FRACT,' \
                         'Option Explicit,SQRT,ATAN,GOOD,OR,STBT,AUTO,GOTO,OS,SYSSTAT,BAD,IF,PEU,TAN,CAS,IMAN,REM,THEN,' \
@@ -65,9 +63,6 @@ class ExpressionParser:
     def parse_transitions(self, row_data):
         self.transtions.append(row_data)
 
-    def tokenize_path(self, path):
-        pass
-
     # for assignment type expressions
     def tokenize_actions(self, expression):
         cleaned = self.comment.sub('', expression)
@@ -77,22 +72,6 @@ class ExpressionParser:
         action_list = []
 
         cleaned, quotes = self.sub_quotes(cleaned)
-
-        # for c in range(0, len(cleaned)):
-        #     if cleaned[c] == '"' and open_quote == 0:
-        #         open_quote = c
-        #     elif cleaned[c] == '"' and open_quote != 0:
-        #         quote_indices.append((open_quote, c+1))
-        #         open_quote = 0
-        # quotes = []
-        # quote_dict = dict()
-        # if len(quote_indices) > 0:
-        #     [quotes.append(cleaned[m[0]:m[1]]) for m in quote_indices]
-        #     idx = 0
-        # for m in range(0, len(quotes)):
-        #     cleaned = cleaned.replace(quotes[m], "%String{0}%".format(idx))
-        #     quote_dict[idx] = quotes[m]
-        #     idx += 1
 
         # find assignments operators
         assignments = self.assignment_op.findall(cleaned)
@@ -123,9 +102,11 @@ class ExpressionParser:
         #         condition_list.append(sides)
         return condition_list
 
+
     def tokenize_path(self, path):
         path_characters = '|'.join(["^",":","\/","\."])
         return re.split(path_characters, path)
+
 
     def sub_quotes(self, expression):
         open_quote = 0
@@ -233,6 +214,9 @@ class ExpressionParser:
                 writer.writerow(a)
 
 if '__name__' == '__main__':
+    xml = '324_EM-A02-XFR'
+    root = convertfhxtoxml(xml, forcerebuild=False)
+    csv_file = '324_EM-A02-XFR_compiled'
     P = ExpressionParser()
     P.give_datafiles(csv_file)
     P.check_against_rules()
