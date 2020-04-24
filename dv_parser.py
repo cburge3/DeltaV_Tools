@@ -1,6 +1,7 @@
 import warnings
 import re
 import html
+import time
 
 # TODO
 # CR = code review , Doc = Documentation
@@ -20,6 +21,14 @@ import html
 # this is only meant to handle 1 SFC at a time
 
 # ideally this can be modified to parse expressions and sub in English language independent of an SFC context
+
+class Token:
+    def __init__(self, text, kind):
+        self.text = text
+        self.kind = kind
+
+    def __repr__(self):
+        return str(self.text + self.kind)
 
 class Exp:
     def __init__(self, left, right):
@@ -59,21 +68,26 @@ class Conditional:
 class ExpressionParser:
     def __init__(self):
         self._comment = re.compile('(?:\(\*[\s\S]*?\*\))|(?:REM.*)')
-        self._keywords = re.compile("|".join("""ABS,EXP,MAX,SHL,ACOS,EXPT,MIN,SHR,AND,EUP,MOD,SIGN,ASIN,FALSE,NOT,SIN,ASR16,FRACT,
-                        Option Explicit,SQRT,ATAN,GOOD,OR,STBT,AUTO,GOTO,OS,SYSSTAT,BAD,IF,PEU,TAN,CAS,IMAN,REM,THEN,
-                        COS,LIMITED_CONSTANT,ROL,TIME,DO,LIMITED_HIGH,ROR,TIME_TO_STR,ELSE,LIMITED_LOW,ROTL,TRUE,
-                        END_IF,LN,ROTL16,TRUNC,END_VAR,LO,ROTR,UNC,END_WHILE,LOG,ROTR16,VAR,LOG2,ROUND,XOR,MAN,
-                        'SELSTR,WHILE"""))
+        self._keywords = re.compile("|".join("""ABS,EXP,MAX,SHL,ACOS,EXPT,MIN,SHR,AND,EUP,MOD,SIGN,ASIN,FALSE,NOT,SIN,ASR16,FRACT,\
+Option Explicit,SQRT,ATAN,GOOD,OR,STBT,AUTO,GOTO,OS,SYSSTAT,BAD,IF,PEU,TAN,CAS,IMAN,REM,THEN,\
+COS,LIMITED_CONSTANT,ROL,TIME,DO,LIMITED_HIGH,ROR,TIME_TO_STR,ELSE,LIMITED_LOW,ROTL,TRUE,\
+END_IF,LN,ROTL16,TRUNC,END_VAR,LO,ROTR,UNC,END_WHILE,LOG,ROTR16,VAR,LOG2,ROUND,XOR,MAN,\
+SELSTR,WHILE""".split(',')))
+        self._constants = re.compile(r"FALSE|TRUE|BAD|GOOD|LIMITED_CONSTANT|LIMITED_HIGH|LIMITED_LOW|UNC|AUTO|CAS|IMAN|LO|MAN|OS|RCAS|ROUT")
         self._operands = '+, -, *, /, AND, OR, NOT, XOR, MOD, !, =,<>, ~=, !=, <, >, <=, >=, **, :=, (,), x?y:z, ~,' \
                         ' ^,&, %'
         self._assignment_op = re.compile('(.*)?:=(.*)?;')
-        self._comparison_operators = re.compile(r'\s+(>=?|<(?:>|=)?|!=|~=|=)\s+')
-        self._conditional_chunks = re.compile('\s+(?:OR|AND|XOR)\s+')
-        self._path = re.compile(r"'(\/\/|\^\/|\/|\w+)(\w+)(\/|\w+)+\.?(\w+)'")
-        self._path = re.compile(r"\s?'(?:\w|\/|\.|#|\_|\^|\-\+)+'\s?")
+        self._comparison_operators = re.compile(r'(?:>=?|<(?:>|=)?|!=|~=|=)')
+        self.boolean_ops = re.compile('(?:OR|AND|XOR)')
+        # self._path = re.compile(r"'(\/\/|\^\/|\/|\w+)(\w+)(\/|\w+)+\.?(\w+)'")
+        self._path = re.compile(r"'(?:\w|\/|\.|\#|\_|\^|\-)+'")
         self._number = re.compile(r"\d+")
-        self._open_paren = re.compile(r"\s?\(")
-        self._close_paren = re.compile(r"\s?\(")
+        self._open_paren = re.compile(r"\(")
+        self._close_paren = re.compile(r"\)")
+        self._space = re.compile(r"\s+")
+        self.tokens_rex = {'space': self._space, 'open_p': self._open_paren, 'close_p': self._close_paren,
+                           'comp_op': self._comparison_operators, 'bool_op': self.boolean_ops, 'dv_path': self._path,
+                           'number': self._number, 'keyword': self._constants}
 
     def parse_assignment(self, text):
         return self.tokenize_action(text)
@@ -81,9 +95,9 @@ class ExpressionParser:
     def parse_path(self, text):
         return self.tokenize_path(text)
 
-    def parse_condition(self, text, cond_object):
+    def parse_condition(self, text):
         p = self.prep_condition(text)
-        return self.tokenize_condition(p, condition_object=cond_object)
+        return self.tokenize_condition(p)
 
     # for assignment type expressions
     def tokenize_action(self, expression):
@@ -109,60 +123,18 @@ class ExpressionParser:
         else:
             return conditions
 
-    def tokenize_condition(self, expression, condition_object=False, parentheses=[]):
-        operator_count = self._comparison_operators.search(expression)
-        condition_list = []
-        if not parentheses:
-            parentheses = self.handle_parentheses(self, expression)
-        print(parentheses)
-        for set_of_p in range(0, len(parentheses)):
-            print(set_of_p)
-            if set_of_p < len(parentheses)-1:
-                piece = expression[level[set_of_p][0][0]:level[set_of_p + 1][0][0]]
-            else:
-                piece = expression[level[set_of_p][0][0]:]
-            print(piece, len(piece))
-            print(set_of_p, len(level))
-            links = self._conditional_chunks.search(piece)
-            print(links)
-        #     check to see if parentheses enclose a single statement
-            comp_operators = self._comparison_operators.search(piece)
-            print(comp_operators)
-        #     check to see if there are boolean operators in the slice
-            operator = self._conditional_chunks.search(piece)
-
-        conds = self._conditional_chunks.split(expression)
-        for a in conds:
-            s = self._comparison_operators.split(a)
-            if len(s) == 1:
-                s += ['=', 'TRUE']
-            if condition_object:
-                s = [b.strip() for b in s]
-                condition_list.append(Condition(left=s[0], right=s[2], comparator=s[1]))
-            else:
-                condition_list.append(self._comparison_operators.split(a))
-        return condition_list
-
-    @staticmethod
-    def handle_parentheses(self, expression):
-        parenthesis_depth = 0
-        opens = []
-        closes = []
-        # initial parse of parentheses
-        for c in range(0, len(expression)):
-            if expression[c] == '(':
-                opens.append((c, parenthesis_depth))
-                parenthesis_depth += 1
-            elif expression[c] == ')':
-                parenthesis_depth -= 1
-                closes.append((c, parenthesis_depth))
-        levels = []
-        max_depth = max([a[1] for a in opens])
-        for a in range(0, max_depth + 1):
-            pairs = list(zip(filter(lambda b: b[1] == a, opens), filter(lambda b: b[1] == a, closes)))
-            levels.append(pairs)
-        # return levels
-        return levels[0]
+    def tokenize_condition(self, expression):
+        e = expression
+        tokens = []
+        while len(e) > 0:
+            for z in self.tokens_rex.keys():
+                t = self.tokens_rex[z].match(e)
+                if t:
+                    if z != 'space':
+                        raw_string = e[t.span()[0]: t.span()[1]]
+                        tokens.append(Token(raw_string, z))
+                    e = e[t.span()[1]:]
+        return tokens
 
     def tokenize_path(self, path):
         path_characters = '|'.join(["^",":","\/","\.","'"])
@@ -219,7 +191,7 @@ if __name__ == '__main__':
     ('//#TC-BATCH#/PID1/RCAS_IN.CV' != '^/B_RX_BATCHTMP_SP.CV'))"""
 
     # print(P.parse_assignment(s2))
-    c = P.parse_condition(condition, True)
+    c = P.parse_condition(condition)
     print(c)
     # print(type(c))
     # for l in c:
