@@ -27,42 +27,46 @@ class Token:
         self.text = text
         self.kind = kind
 
-    def __repr__(self):
-        return str(self.text + self.kind)
-
-class Exp:
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-        self.data = {'left': self.left, 'right': self.right}
-
-    def data_dict(self):
-        return self.data
-
-    def add_quotes(self, text):
-        self.data['quotes'] = text
+    def __str__(self):
+        return "Token {} {}".format(self.text, self.kind)
 
     def __repr__(self):
-        return str(self.data)
+        return self.__str__()
 
 
-class Condition(Exp):
-    def __init__(self, left, comparator, right):
-        super().__init__(left, right)
-        assert comparator in {'=', '<>', '~=', '!=', '<', '>', '<=', '>='}
-        self.data['comparator'] = comparator
+class ExpressionTree:
+    def __init__(self, parent=None, *args):
+        if parent is not None:
+            self.parent = parent
+        else:
+            self.root = True
+            self.parent = None
+        self.left = None
+        self.right = None
+        self.operator = None
+        for a in args:
+            self.add_leaf(a)
 
+    def add_leaf(self, item):
+        if self.left is not None:
+            self.left = item
+        elif self.right is not None:
+            self.right = item
+        else:
+            raise Exception("Too many children")
 
-class Statement(Exp):
-    def __init__(self, left, right):
-        super().__init__(left, right)
+    def set_operator(self, operator):
+        self.operator = operator
 
+    def add_root(self, root):
+        self.parent = ExpressionTree(root)
+        self.parent.add_leaf(self)
+        self.root = False
+        return self.parent
 
-class Conditional:
-    def __init__(self, conditions, bool_op):
-        for a in conditions:
-            assert type(a == Condition)
-        assert bool_op in {'OR', 'AND', 'XOR'}
+    def all_children(self):
+        return self.left is not None and self.right is not None
+
 
 
 class ExpressionParser:
@@ -74,20 +78,26 @@ COS,LIMITED_CONSTANT,ROL,TIME,DO,LIMITED_HIGH,ROR,TIME_TO_STR,ELSE,LIMITED_LOW,R
 END_IF,LN,ROTL16,TRUNC,END_VAR,LO,ROTR,UNC,END_WHILE,LOG,ROTR16,VAR,LOG2,ROUND,XOR,MAN,\
 SELSTR,WHILE""".split(',')))
         self._constants = re.compile(r"FALSE|TRUE|BAD|GOOD|LIMITED_CONSTANT|LIMITED_HIGH|LIMITED_LOW|UNC|AUTO|CAS|IMAN|LO|MAN|OS|RCAS|ROUT")
-        self._operands = '+, -, *, /, AND, OR, NOT, XOR, MOD, !, =,<>, ~=, !=, <, >, <=, >=, **, :=, (,), x?y:z, ~,' \
-                        ' ^,&, %'
+        # self._const_values = [0,1,] BAD / GOOD have different values depending on whether they are used for assignment or comparison!!!
+        # self._operands = '+, -, *, /, AND, OR, NOT, XOR, MOD, !, =,<>, ~=, !=, <, >, <=, >=, **, :=, (,), x?y:z, ~,' \
+        #                 ' ^,&, %'
+        self._operands = re.compile(r"\+|-|\*{1,2}|\/|&|%")
         self._assignment_op = re.compile('(.*)?:=(.*)?;')
         self._comparison_operators = re.compile(r'(?:>=?|<(?:>|=)?|!=|~=|=)')
         self.boolean_ops = re.compile('(?:OR|AND|XOR)')
         # self._path = re.compile(r"'(\/\/|\^\/|\/|\w+)(\w+)(\/|\w+)+\.?(\w+)'")
         self._path = re.compile(r"'(?:\w|\/|\.|\#|\_|\^|\-)+'")
         self._number = re.compile(r"\d+")
+        # self._named_set = re.compile("how is a named set different than a DV path?")
+        self._named_set = re.compile(r"'(?:\w|\#|\$|\-){1,40}:(?:\w|\#|\$|\-)+'")
         self._open_paren = re.compile(r"\(")
         self._close_paren = re.compile(r"\)")
         self._space = re.compile(r"\s+")
         self.tokens_rex = {'space': self._space, 'open_p': self._open_paren, 'close_p': self._close_paren,
                            'comp_op': self._comparison_operators, 'bool_op': self.boolean_ops, 'dv_path': self._path,
-                           'number': self._number, 'keyword': self._constants}
+                           'number': self._number, 'keyword': self._constants, 'operand': self._operands, 'named_set':
+                           self._named_set}
+        self._expression_family = {'dv_path', 'number', 'keyword', 'named_set'}
 
     def parse_assignment(self, text):
         return self.tokenize_action(text)
@@ -97,7 +107,35 @@ SELSTR,WHILE""".split(',')))
 
     def parse_condition(self, text):
         p = self.prep_condition(text)
-        return self.tokenize_condition(p)
+        tokens = self.tokenize_condition(p)
+        tree = self.parse_piece(tokens)
+        return tree
+
+    def parse_piece(self, tokens):
+        last_token = False
+        tree = ExpressionTree()
+        consumed = 0
+        for t in range(0, len(tokens)):
+            print(tokens[t])
+            if t == len(tokens) - 1:
+                print("Last token")
+                last_token = True
+            if tokens[t].kind == 'open_p':
+                consumed, exp = self.parse_piece(tokens[t + 1:])
+                t = t + consumed
+                continue
+            if tokens[t].kind in self._expression_family:
+                tree.add_leaf(tokens[t])
+                if not last_token:
+                    if tokens[t+1].kind == 'bool_op':
+                        tree.set_operator(tokens[t+1])
+            if tokens[t].kind == 'bool_op':
+                if not tree.all_children():
+                    tree.set_operator(tokens[t])
+                else:
+                    tree = tree.add_root(tokens[t])
+       #             implied = True statement
+        return consumed, tree
 
     # for assignment type expressions
     def tokenize_action(self, expression):
