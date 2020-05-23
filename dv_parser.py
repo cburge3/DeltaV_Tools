@@ -43,128 +43,98 @@ class Token:
         finally:
             return self.text == other.text
 
-
-class Node:
-    def __init__(self, val, uid=0):
-        self.left = None
-        self.right = None
-        self.value = val
-        self.id = uid
-
-
 class ExpressionTree:
     _id = 0
-    def __init__(self):
-        self.tree = Node(None)
-        self.current_node = ExpressionTree._id
 
-    def set_active_node(self, node_id):
-        self.current_node = node_id
-
-    def set_value(self, node_id):
-        self
-
-    def get_current_node(self):
-        return self.current_node
+    def __init__(self, parent=None, *args):
+        if parent is not None:
+            self.parent = parent
+        else:
+            self.root = True
+            self._id = ExpressionTree._id
+            ExpressionTree._id += 1
+            self.parent = None
+        self.left = None
+        self.right = None
+        self.operator = None
+        for a in args:
+            self.add_leaf(a)
 
     def add_leaf(self, item):
+        i = item
+        if item.__class__ is self.__class__:
+            i.parent = self
+        if self.left is None:
+            self.left = item
+            self.left._id = ExpressionTree._id
+            ExpressionTree._id += 1
+        elif self.right is None:
+            self.right = item
+            self.right._id = ExpressionTree._id
+            ExpressionTree._id += 1
+        else:
+            raise Exception("Too many children {} {} {}".format(item, self.right, self.left))
 
+    def set_operator(self, operator):
+        self.operator = operator
 
+    def add_root(self, root):
+        self.parent = ExpressionTree(root)
+        self.parent.add_leaf(self)
+        self.root = False
+        return self.parent
 
+    def draw_tree(self, tree=None):
+        if tree is None:
+            tree = Digraph()
+        tree.node(str(self._id), str(self.operator))
+        if self.left_is_terminal():
+            tree.node(str(self.left._id), )
+            tree.edge(str(self._id), str(self.left._id))
+        else:
+            self.left.draw_tree(tree)
+        if self.right_is_terminal():
+            tree.node(str(self.right._id), str(self.right))
+            tree.edge(str(self._id), str(self.right._id))
+        else:
+            self.right.draw_tree(tree)
+        return tree
 
+    def render_tree(self, t):
+        t.render('parse_tree.gv', view=True)
 
-# class ExpressionTree:
-#     _id = 0
-#
-#     def __init__(self, parent=None, *args):
-#         if parent is not None:
-#             self.parent = parent
-#         else:
-#             self.root = True
-#             self._id = ExpressionTree._id
-#             ExpressionTree._id += 1
-#             self.parent = None
-#         self.left = None
-#         self.right = None
-#         self.operator = None
-#         for a in args:
-#             self.add_leaf(a)
-#
-#     def add_leaf(self, item):
-#         i = item
-#         if item.__class__ is self.__class__:
-#             i.parent = self
-#         if self.left is None:
-#             self.left = item
-#             self.left._id = ExpressionTree._id
-#             ExpressionTree._id += 1
-#         elif self.right is None:
-#             self.right = item
-#             self.right._id = ExpressionTree._id
-#             ExpressionTree._id += 1
-#         else:
-#             raise Exception("Too many children {} {} {}".format(item, self.right, self.left))
-#
-#     def set_operator(self, operator):
-#         self.operator = operator
-#
-#     def add_root(self, root):
-#         self.parent = ExpressionTree(root)
-#         self.parent.add_leaf(self)
-#         self.root = False
-#         return self.parent
-#
-#     def draw_tree(self, tree=None):
-#         if tree is None:
-#             tree = Digraph()
-#         tree.node(str(self._id), str(self.operator))
-#         if self.left_is_terminal():
-#             tree.node(str(self.left._id), )
-#             tree.edge(str(self._id), str(self.left._id))
-#         else:
-#             self.left.draw_tree(tree)
-#         if self.right_is_terminal():
-#             tree.node(str(self.right._id), str(self.right))
-#             tree.edge(str(self._id), str(self.right._id))
-#         else:
-#             self.right.draw_tree(tree)
-#         return tree
-#
-#     def render_tree(self, t):
-#         t.render('parse_tree.gv', view=True)
-#
-#     def __str__(self):
-#         # s = "{}{} \n left: {} right: {}".format(self._id, self.operator, self.left.__repr__(), self.right.__repr__())
-#         s = "{}{}".format(self._id, self.operator)
-#         return s
-#
-#     def __repr__(self):
-#         return self.__str__()
-#
-#     def all_children(self):
-#         return self.left is not None and self.right is not None
-#
-#     def any_children(self):
-#         return self.left is not None or self.right is not None
-#
-#     def left_is_terminal(self):
-#         return self.left.__class__ is self.__class__
-#
-#     def right_is_terminal(self):
-#         return self.right.__class__ is self.__class__
-#
-#     def prune(self):
-#         # this is based on the fact that operands are added from left to right in a node and a sparse node will only
-#         # have a left leaf
-#         # print("pruning {}".format(self))
-#         if self.operator is None and self.any_children():
-#             self = self.left
-#             return self
-#         if not self.left_is_terminal():
-#             self.left = self.left.prune()
-#         if not self.right_is_terminal():
-#             self.right = self.right.prune()
-#         return self
+    def __str__(self):
+        # s = "{}{} \n left: {} right: {}".format(self._id, self.operator, self.left.__repr__(), self.right.__repr__())
+        s = "{}{}".format(self._id, self.operator)
+        return s
+
+    def __repr__(self):
+        return self.__str__()
+
+    def all_children(self):
+        return self.left is not None and self.right is not None
+
+    def any_children(self):
+        return self.left is not None or self.right is not None
+
+    def left_is_terminal(self):
+        return self.left.__class__ is self.__class__
+
+    def right_is_terminal(self):
+        return self.right.__class__ is self.__class__
+
+    def prune(self):
+        # this is based on the fact that operands are added from left to right in a node and a sparse node will only
+        # have a left leaf
+        # print("pruning {}".format(self))
+        if self.operator is None and self.any_children():
+            self = self.left
+            return self
+        if not self.left_is_terminal():
+            self.left = self.left.prune()
+        if not self.right_is_terminal():
+            self.right = self.right.prune()
+        return self
 
 
 class ExpressionParser:
