@@ -2,6 +2,7 @@ import warnings
 import re
 import html
 from graphviz import Digraph
+from tree_scratch import ExpressionTree
 import os
 os.environ["PATH"] += os.pathsep + 'C:/Program Files (x86)/Graphviz2.38/bin/'
 import time
@@ -42,99 +43,6 @@ class Token:
             a = other.text
         finally:
             return self.text == other.text
-
-class ExpressionTree:
-    _id = 0
-
-    def __init__(self, parent=None, *args):
-        if parent is not None:
-            self.parent = parent
-        else:
-            self.root = True
-            self._id = ExpressionTree._id
-            ExpressionTree._id += 1
-            self.parent = None
-        self.left = None
-        self.right = None
-        self.operator = None
-        for a in args:
-            self.add_leaf(a)
-
-    def add_leaf(self, item):
-        i = item
-        if item.__class__ is self.__class__:
-            i.parent = self
-        if self.left is None:
-            self.left = item
-            self.left._id = ExpressionTree._id
-            ExpressionTree._id += 1
-        elif self.right is None:
-            self.right = item
-            self.right._id = ExpressionTree._id
-            ExpressionTree._id += 1
-        else:
-            raise Exception("Too many children {} {} {}".format(item, self.right, self.left))
-
-    def set_operator(self, operator):
-        self.operator = operator
-
-    def add_root(self, root):
-        self.parent = ExpressionTree(root)
-        self.parent.add_leaf(self)
-        self.root = False
-        return self.parent
-
-    def draw_tree(self, tree=None):
-        if tree is None:
-            tree = Digraph()
-        tree.node(str(self._id), str(self.operator))
-        if self.left_is_terminal():
-            tree.node(str(self.left._id), )
-            tree.edge(str(self._id), str(self.left._id))
-        else:
-            self.left.draw_tree(tree)
-        if self.right_is_terminal():
-            tree.node(str(self.right._id), str(self.right))
-            tree.edge(str(self._id), str(self.right._id))
-        else:
-            self.right.draw_tree(tree)
-        return tree
-
-    def render_tree(self, t):
-        t.render('parse_tree.gv', view=True)
-
-    def __str__(self):
-        # s = "{}{} \n left: {} right: {}".format(self._id, self.operator, self.left.__repr__(), self.right.__repr__())
-        s = "{}{}".format(self._id, self.operator)
-        return s
-
-    def __repr__(self):
-        return self.__str__()
-
-    def all_children(self):
-        return self.left is not None and self.right is not None
-
-    def any_children(self):
-        return self.left is not None or self.right is not None
-
-    def left_is_terminal(self):
-        return self.left.__class__ is self.__class__
-
-    def right_is_terminal(self):
-        return self.right.__class__ is self.__class__
-
-    def prune(self):
-        # this is based on the fact that operands are added from left to right in a node and a sparse node will only
-        # have a left leaf
-        # print("pruning {}".format(self))
-        if self.operator is None and self.any_children():
-            self = self.left
-            return self
-        if not self.left_is_terminal():
-            self.left = self.left.prune()
-        if not self.right_is_terminal():
-            self.right = self.right.prune()
-        return self
 
 
 class ExpressionParser:
@@ -187,34 +95,38 @@ SELSTR,WHILE""".split(',')))
         last_token = False
         tree = ExpressionTree()
         consumed = 0
-        t = 0
-        while t < len(tokens):
-            last_token = (t == len(tokens)-1)
-            # print(t, tokens[t], last_token)
-            if tokens[t].kind == 'open_p':
-                c, sub_tree = self.parse_piece(tokens[t + 1:])
-                tree.add_leaf(sub_tree)
-                t = t + c + 1
-                consumed += c
+        tk = 0
+        while tk < len(tokens):
+            # input()
+            # t = tree.draw_tree()
+            # tree.render_tree(t)
+            last_token = (tk == len(tokens)-1)
+            print(tk, tokens[tk], last_token)
+            if tokens[tk].kind == 'open_p':
+                count, sub_tree = self.parse_piece(tokens[tk + 1:])
+                if sub_tree is not None:
+                    tree.add_subtree(sub_tree)
+                tk = tk + count + 1
+                consumed += count
                 continue
-            if tokens[t].kind in self._operator_family:
-                if not tree.all_children():
-                    tree.set_operator(tokens[t])
+            if tokens[tk].kind in self._operator_family:
+                if tree.get_num_leaves() < 2:
+                    tree.set_value(tokens[tk])
                 else:
-                    tree = tree.add_root(tokens[t])
-            if tokens[t].kind in self._operand_family:
-                tree.add_leaf(tokens[t])
+                    tree = tree.insert_parent(tokens[tk])
+            if tokens[tk].kind in self._operand_family:
+                tree.add_leaf(tokens[tk])
                 if not last_token:
-                    if tokens[t+1].kind in self._operator_family:
-                        tree.set_operator(tokens[t+1])
-                        t += 1
-            if tokens[t].kind == 'close_p':
+                    if tokens[tk+1].kind in self._operator_family:
+                        tree.set_value(tokens[tk+1])
+                        tk += 1
+            if tokens[tk].kind == 'close_p':
                 # 2 is for open and close parenthesis
-                return t + 2, tree
-       #             implied = True statement
-            t += 1
+                return tk + 2, tree
+    # implied = True statement
+            tk += 1
             consumed += 1
-        tree.prune()
+        print(tree.get_relations())
         return consumed, tree
 
     # for assignment type expressions
@@ -311,13 +223,14 @@ if __name__ == '__main__':
     # condition = """('//#EM-PIC-HTR#/A_PV.CV' !=  '^/B_PICHTR_EM_CMD.CV') OR
     # ('//#TC-PIC-HTR#/PID1/MODE.ACTUAL' != RCAS)"""
 
-    # condition = """TRUE = (1)"""
+    condition = """TRUE = (1)"""
 
-    condition = """('S0180/PENDING_CONFIRMS.CV' = 0) AND
-    (('//#EM-DAYTK-JKT#/A_PV.CV' != '^/B_DAYTKJK_EM_CMD.CV')
-    OR
-    ('//#EM-DAYTK#/A_PV.CV' != '^/B_DAYTNK_EM_CMD.CV'))"""
+    # condition = """('S0180/PENDING_CONFIRMS.CV' = 0) AND
+    # (('//#EM-DAYTK-JKT#/A_PV.CV' != '^/B_DAYTKJK_EM_CMD.CV')
+    # OR
+    # ('//#EM-DAYTK#/A_PV.CV' != '^/B_DAYTNK_EM_CMD.CV'))"""
 
     # print(P.parse_assignment(s2))
     c = P.parse_condition(condition)
-    print(c)
+    # t = c.draw_tree()
+    # c.render_tree(t)

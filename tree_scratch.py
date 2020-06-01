@@ -12,6 +12,12 @@ class Node:
             self._id = uid
         self.value = value
 
+    def __repr__(self):
+        return str(self.value)
+
+    def __str__(self):
+        return self.__repr__()
+
 
 class ExpressionTree:
     _id = 0
@@ -31,8 +37,23 @@ class ExpressionTree:
                 self.nodes[i] = Node(uid=i)
             ExpressionTree._id = max(f)
 
+    def set_value(self, val, uid=None):
+        target = uid
+        if uid is None:
+            target = self.current_node
+        self.nodes[target] = val
+
     def set_active_node(self, node_id):
         self.current_node = node_id
+
+    def get_relations(self):
+        return self._relations
+
+    # def __repr__(self):
+    #     return self._relations
+    #
+    # def __str__(self):
+    #     return self.__repr__()
 
     def flatten_list(self, l):
         f = []
@@ -42,6 +63,9 @@ class ExpressionTree:
             else:
                 f.append(i)
         return f
+
+    def remove_duplicates(self):
+        l = self.flatten_list(self._relations)
 
     def set_value(self, value, node_id=None):
         if node_id is None:
@@ -59,6 +83,27 @@ class ExpressionTree:
         n = Node(value=val)
         i = ExpressionTree._id
         self.nodes[i] = n
+        loc = locals()
+        exec('l = self._relations{}'.format(path), globals(), loc)
+        l = loc['l']
+        position = l.index(self.current_node)
+        # item is is at the end of its level and has no children
+        if position + 1 == len(l):
+            exec('self._relations{}.append([i])'.format(path))
+        # item has no children
+        elif type(l[position + 1]) is not list:
+            exec('self._relations{}.insert(position + 1, [i])'.format(path))
+        # item already has child(ren)
+        else:
+            exec('self._relations{}.append(i)'.format(o_path))
+
+    def add_subtree(self, subtree, val=None):
+        o_path = self._build_path_to()
+        path = str(o_path)[:-1]
+        path = self._format_path(path)
+        o_path = self._format_path(int(o_path) + 1)
+        i = subtree.get_relations()
+        self.nodes = {**self.nodes, **subtree.nodes}
         loc = locals()
         exec('l = self._relations{}'.format(path), globals(), loc)
         l = loc['l']
@@ -149,8 +194,8 @@ class ExpressionTree:
             if type(n) is list:
                 tree = self.draw_tree(tree, n, previous)
             else:
-                # tree.node(str(n), self.nodes[n].__str__())
-                tree.node(str(n), str(n))
+                tree.node(str(n), str(n) + ':' + self.nodes[n].__str__())
+                # tree.node(str(n), str(n))
                 previous = n
                 if parent != 0:
                     tree.edge(str(parent), str(n))
