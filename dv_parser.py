@@ -32,7 +32,8 @@ class Token:
         self.kind = kind
 
     def __str__(self):
-        return "Token:{}:{}".format(self.kind, self.text)
+        # return "Token:{}:{}".format(self.kind, self.text)
+        return self.text
 
     def __repr__(self):
         return self.__str__()
@@ -64,17 +65,18 @@ SELSTR,WHILE""".split(',')))
         # self._path = re.compile(r"'(\/\/|\^\/|\/|\w+)(\w+)(\/|\w+)+\.?(\w+)'")
         self._path = re.compile(r"'(?:\w|\/|\.|\#|\_|\^|\-)+'")
         self._number = re.compile(r"\d+")
-        # self._named_set = re.compile("how is a named set different than a DV path?")
         self._named_set = re.compile(r"'(?:\w|\#|\$|\-){1,40}:(?:\w|\#|\$|\-)+'")
         self._open_paren = re.compile(r"\(")
         self._close_paren = re.compile(r"\)")
         self._space = re.compile(r"\s+")
+        self._semicolon = re.compile(r";")
         self.tokens_rex = {'space': self._space, 'open_p': self._open_paren, 'close_p': self._close_paren,
                            'comp_op': self._comparison_operators, 'bool_op': self.boolean_ops, 'dv_path': self._path,
                            'number': self._number, 'keyword': self._constants, 'operand': self._operands, 'named_set':
-                           self._named_set}
+                           self._named_set, 'semicolon': self._semicolon}
         self._operand_family = {'dv_path', 'number', 'keyword', 'named_set'}
         self._operator_family = {'comp_op', 'bool_op'}
+        self._ignored_family = {'semicolon', 'space'}
 
     def parse_assignment(self, text):
         return self.tokenize_action(text)
@@ -96,30 +98,26 @@ SELSTR,WHILE""".split(',')))
         tree = ExpressionTree()
         consumed = 0
         tk = 0
+        print(tokens)
         while tk < len(tokens):
             # input()
-            # t = tree.draw_tree()
-            # tree.render_tree(t)
+            # temp = tree.draw_tree()
+            # tree.render_tree(temp)
             last_token = (tk == len(tokens)-1)
             print(tk, tokens[tk], last_token)
             if tokens[tk].kind == 'open_p':
                 count, sub_tree = self.parse_piece(tokens[tk + 1:])
-                if sub_tree is not None:
+                if sub_tree.has_data():
                     tree.add_subtree(sub_tree)
-                tk = tk + count + 1
+                    tree.set_active_node(sub_tree.get_root_node())
+                tk += count
                 consumed += count
                 continue
             if tokens[tk].kind in self._operator_family:
-                if tree.get_num_leaves() < 2:
-                    tree.set_value(tokens[tk])
-                else:
-                    tree = tree.insert_parent(tokens[tk])
+                pos = tree.insert_parent(tokens[tk])
+                tree.set_active_node(pos)
             if tokens[tk].kind in self._operand_family:
                 tree.add_leaf(tokens[tk])
-                if not last_token:
-                    if tokens[tk+1].kind in self._operator_family:
-                        tree.set_value(tokens[tk+1])
-                        tk += 1
             if tokens[tk].kind == 'close_p':
                 # 2 is for open and close parenthesis
                 return tk + 2, tree
@@ -157,13 +155,19 @@ SELSTR,WHILE""".split(',')))
         e = expression
         tokens = []
         while len(e) > 0:
+            t = None
             for z in self.tokens_rex.keys():
+                print(self.tokens_rex[z].match(e), e[0:5])
                 t = self.tokens_rex[z].match(e)
                 if t:
-                    if z != 'space':
+                    if z not in self._ignored_family:
                         raw_string = e[t.span()[0]: t.span()[1]]
                         tokens.append(Token(raw_string, z))
                     e = e[t.span()[1]:]
+            # if t is None:
+                # print(self._space.match(e))
+                # print(self._comparison_operators.match(e))
+                # raise Exception("Tokens: {} unexpected token:{}".format(tokens, e))
         return tokens
 
     def tokenize_path(self, path):
@@ -199,31 +203,38 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 if __name__ == '__main__':
     P = ExpressionParser()
 
-    s1 = html.unescape("&apos;//423_PC-A01/PID1/PV.CV&apos; &gt; &apos;//423_FV-110/TP01.CV&apos;")
-    condition = """('S0180/PENDING_CONFIRMS.CV' = 0) AND
-    (* heres a random comment too *)
-    (('//#EM-DAYTK-JKT#/A_PV.CV' != '^/B_DAYTKJK_EM_CMD.CV') OR
-    ('//#EM-DAYTK#/A_PV.CV' != '^/B_DAYTNK_EM_CMD.CV') OR
-    ('//#TC-DAYTK-JKT#/PID1/SP_HI_LIM.CV' != '^/B_HFP_JKT_SPHLIM.CV') OR
-    ('//#PT-DAY-TANK#/PID1/MODE.ACTUAL' != RCAS) OR
-    ('//#PT-DAY-TANK#/PID1/RCAS_IN.CV' != '^/B_HFP_PRESS_SP.CV') OR
+    # s1 = html.unescape("&apos;//423_PC-A01/PID1/PV.CV&apos; &gt; &apos;//423_FV-110/TP01.CV&apos;")
+    # condition = """('S0180/PENDING_CONFIRMS.CV' = 0) AND
+    # (* heres a random comment too *)
+    # (('//#EM-DAYTK-JKT#/A_PV.CV' != '^/B_DAYTKJK_EM_CMD.CV') OR
+    # ('//#EM-DAYTK#/A_PV.CV' != '^/B_DAYTNK_EM_CMD.CV') OR
+    # ('//#TC-DAYTK-JKT#/PID1/SP_HI_LIM.CV' != '^/B_HFP_JKT_SPHLIM.CV') OR
+    # ('//#PT-DAY-TANK#/PID1/MODE.ACTUAL' != RCAS) OR
+    # ('//#PT-DAY-TANK#/PID1/RCAS_IN.CV' != '^/B_HFP_PRESS_SP.CV') OR
+    #
+    # ('//#EM-PIC-HTR#/A_PV.CV' !=  '^/B_PICHTR_EM_CMD.CV') OR
+    # ('//#TC-PIC-HTR#/PID1/MODE.ACTUAL' != RCAS) OR
+    # ('//#TC-PIC-HTR#/PID1/RCAS_IN.CV' != '^/B_PICHTR_TEMP_SP.CV') OR
+    #
+    # ('//#EM-JACKET#/A_PV.CV' != '^/B_JKT_EM_CMD.CV') OR
+    # ('//#TC-JACKET#/PID1/MODE.ACTUAL' !=  CAS) OR
+    # ('//#TC-JACKET#/SP_HI_LIM.CV' != '^/B_RX_JKT_SPHILIM.CV') OR
+    #
+    # ('//#EM-BATCH#/A_PV.CV' != '^/B_BATCH_EM_CMD.CV') OR
+    # ('//#TC-BATCH#/PID1/MODE.ACTUAL' != RCAS) OR
+    # ('//#TC-BATCH#/PID1/RCAS_IN.CV' != '^/B_RX_BATCHTMP_SP.CV'))"""
 
-    ('//#EM-PIC-HTR#/A_PV.CV' !=  '^/B_PICHTR_EM_CMD.CV') OR
-    ('//#TC-PIC-HTR#/PID1/MODE.ACTUAL' != RCAS) OR
-    ('//#TC-PIC-HTR#/PID1/RCAS_IN.CV' != '^/B_PICHTR_TEMP_SP.CV') OR
+    condition = """('//#EM-PIC-HTR#/A_PV.CV' !=  '^/B_PICHTR_EM_CMD.CV') OR
+    ('//#TC-PIC-HTR#/PID1/MODE.ACTUAL' != RCAS)"""
 
-    ('//#EM-JACKET#/A_PV.CV' != '^/B_JKT_EM_CMD.CV') OR
-    ('//#TC-JACKET#/PID1/MODE.ACTUAL' !=  CAS) OR
-    ('//#TC-JACKET#/SP_HI_LIM.CV' != '^/B_RX_JKT_SPHILIM.CV') OR
+    condition = """('//423_EM-A01-JKT/A_PV.CV' = '423_JACKET_EM:NEUTRAL') OR
+('//423_EM-A01-JKT/A_PV.CV' = '423_JACKET_EM:DRAIN')OR
+(('//423_EM-A01-JKT/SP.CV' = '423_JACKET_EM:NEUTRAL') AND
+('//423_EM-A01-JKT/A_PV.CV' = '423_JACKET_EM:HOLD'))OR
+(('//423_EM-A01-JKT/SP.CV' = '423_JACKET_EM:DRAIN') AND
+('//423_EM-A01-JKT/A_PV.CV' = '423_JACKET_EM:HOLD'));"""
 
-    ('//#EM-BATCH#/A_PV.CV' != '^/B_BATCH_EM_CMD.CV') OR
-    ('//#TC-BATCH#/PID1/MODE.ACTUAL' != RCAS) OR
-    ('//#TC-BATCH#/PID1/RCAS_IN.CV' != '^/B_RX_BATCHTMP_SP.CV'))"""
-
-    # condition = """('//#EM-PIC-HTR#/A_PV.CV' !=  '^/B_PICHTR_EM_CMD.CV') OR
-    # ('//#TC-PIC-HTR#/PID1/MODE.ACTUAL' != RCAS)"""
-
-    condition = """TRUE = (1)"""
+    # condition = """(((TRUE = 1)) AND (FALSE = 0))"""
 
     # condition = """('S0180/PENDING_CONFIRMS.CV' = 0) AND
     # (('//#EM-DAYTK-JKT#/A_PV.CV' != '^/B_DAYTKJK_EM_CMD.CV')
@@ -232,5 +243,5 @@ if __name__ == '__main__':
 
     # print(P.parse_assignment(s2))
     c = P.parse_condition(condition)
-    # t = c.draw_tree()
-    # c.render_tree(t)
+    tr = c.draw_tree()
+    c.render_tree(tr)

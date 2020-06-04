@@ -26,9 +26,10 @@ class ExpressionTree:
         if structure is None:
             i = ExpressionTree._id
             self.current_node = i
-            self._relations = [i]
-            self.nodes = {i: Node(uid=i)}
-            ExpressionTree._id += 1
+            self._relations = []
+            self.nodes = dict()
+            # self._relations = [i]
+            # self.nodes = {i: Node()}
         else:
             self.nodes = {}
             self._relations = structure
@@ -44,7 +45,7 @@ class ExpressionTree:
         self.nodes[target] = val
 
     def set_active_node(self, node_id):
-        self.current_node = node_id
+        self.current_node = int(node_id)
 
     def get_relations(self):
         return self._relations
@@ -72,17 +73,21 @@ class ExpressionTree:
             node_id = self.current_node
         self.nodes[node_id].value = value
 
-    def get_current_node(self):
+    def get_active_node(self):
         return self.current_node
 
     def add_leaf(self, val=None):
+        i = ExpressionTree._id
+        n = Node(value=val)
+        self.nodes[i] = n
+        if not self._relations:
+            self._relations.append(i)
+            return i
         o_path = self._build_path_to()
         path = str(o_path)[:-1]
         path = self._format_path(path)
         o_path = self._format_path(int(o_path) + 1)
-        n = Node(value=val)
-        i = ExpressionTree._id
-        self.nodes[i] = n
+
         loc = locals()
         exec('l = self._relations{}'.format(path), globals(), loc)
         l = loc['l']
@@ -96,14 +101,18 @@ class ExpressionTree:
         # item already has child(ren)
         else:
             exec('self._relations{}.append(i)'.format(o_path))
+        return i
 
     def add_subtree(self, subtree, val=None):
+        self.nodes = {**self.nodes, **subtree.nodes}
+        if not self._relations:
+            self._relations = subtree.get_relations()
+            return
         o_path = self._build_path_to()
         path = str(o_path)[:-1]
         path = self._format_path(path)
         o_path = self._format_path(int(o_path) + 1)
         i = subtree.get_relations()
-        self.nodes = {**self.nodes, **subtree.nodes}
         loc = locals()
         exec('l = self._relations{}'.format(path), globals(), loc)
         l = loc['l']
@@ -116,9 +125,9 @@ class ExpressionTree:
             exec('self._relations{}.insert(position + 1, [i])'.format(path))
         # item already has child(ren)
         else:
-            exec('self._relations{}.append(i)'.format(o_path))
+            exec('self._relations{}.extend(i)'.format(o_path))
 
-    def get_num_leaves(self, uid=None):
+    def get_num_leaves(self):
         path = self._build_path_to()
         path = str(path)[:-1]
         path = self._format_path(path)
@@ -155,16 +164,19 @@ class ExpressionTree:
             a += '[{}]'.format(i)
         return a
 
+    def get_root_node(self):
+        return self._relations[0]
+
     def insert_parent(self, val=None):
         o_path = self._build_path_to()
-        n = Node(value=val)
         i = ExpressionTree._id
+        n = Node(value=val)
         self.nodes[i] = n
         parent = [i]
         if len(str(o_path)) < 2:
             parent.append(self._relations)
             self._relations = parent
-            return
+            return i
         path = str(o_path)[:-2]
         c_path = int(o_path) + 1
         c_path = self._format_path(c_path)
@@ -183,8 +195,15 @@ class ExpressionTree:
                 self._format_path(str(o_path)[:-1])) + '.append([self.current_node])', globals(), loc)
         exec('self._relations{}'.format(
             self._format_path(o_path)) + ' = i', globals(), loc)
+        return i
 
-    def draw_tree(self, tree=None, target=None, parent=0):
+    def has_data(self):
+        if len(self.nodes.keys()) == 1 and self.nodes[self.nodes.keys()[0]].value is None:
+            return False
+        else:
+            return True
+
+    def draw_tree(self, tree=None, target=None, parent=-1):
         previous = parent
         if tree is None:
             tree = Digraph()
@@ -194,47 +213,50 @@ class ExpressionTree:
             if type(n) is list:
                 tree = self.draw_tree(tree, n, previous)
             else:
-                tree.node(str(n), str(n) + ':' + self.nodes[n].__str__())
-                # tree.node(str(n), str(n))
+                # tree.node(str(n), str(n) + ':' + self.nodes[n].__str__())
+                tree.node(str(n), self.nodes[n].__str__())
                 previous = n
-                if parent != 0:
+                if parent != -1:
                     tree.edge(str(parent), str(n))
         return tree
 
     def render_tree(self, t):
+        # os.close('parse_tree.gv')
         t.render('parse_tree.gv', view=True)
 
 
 if __name__ == '__main__':
-    tree = [1,[2,[3,4]]]
-    t = ExpressionTree(tree)
-    t.set_active_node(4)
-    t.get_num_leaves()
-    c = t._build_path_to()
-    d = t._format_path(c)
-    # print(eval("t._relations"+d))
-    t.add_leaf()
-    # print(t.get_num_leaves())
-    t.add_leaf()
-    t.set_active_node(1)
-    t.add_leaf()
-    t.set_active_node(7)
-    t.add_leaf()
-    t.add_leaf()
-    t.set_active_node(8)
-    j = t._build_path_to()
-    j = int(j) + 1
-    j = t._format_path(j)
-    t.set_active_node(5)
-    t.add_leaf()
-    t.set_active_node(10)
-    t.add_leaf()
-    t.add_leaf()
-    # print(j)
-    # exec('print(t._relations{})'.format(j))
-    t.set_active_node(4)
-    t.insert_parent()
+    # tree = [1,[2,[3,4]]]
+    # t = ExpressionTree(tree)
+    # t.set_active_node(4)
+    # t.get_num_leaves()
+    # c = t._build_path_to()
+    # d = t._format_path(c)
+    # # print(eval("t._relations"+d))
+    # t.add_leaf()
+    # # print(t.get_num_leaves())
+    # t.add_leaf()
+    # t.set_active_node(1)
+    # t.add_leaf()
+    # t.set_active_node(7)
+    # t.add_leaf()
+    # t.add_leaf()
+    # t.set_active_node(8)
+    # j = t._build_path_to()
+    # j = int(j) + 1
+    # j = t._format_path(j)
+    # t.set_active_node(5)
+    # t.add_leaf()
+    # t.set_active_node(10)
+    # t.add_leaf()
+    # t.add_leaf()
+    # # print(j)
+    # # exec('print(t._relations{})'.format(j))
+    # t.set_active_node(4)
+    # t.insert_parent()
 
+    tree = [0, [2, 3]]
+    t = ExpressionTree(tree)
     print(t._relations)
     p = t.draw_tree()
     t.render_tree(p)

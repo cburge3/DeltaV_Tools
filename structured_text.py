@@ -1,7 +1,15 @@
-a = 10
-b = 0
-while b <= a:
-    if b == 5:
-        b += 2
-    print(b)
-    b += 1
+import psutil
+
+for proc in psutil.process_iter():
+    try:
+        # this returns the list of opened files by the current process
+        flist = proc.open_files()
+        if flist:
+            print(proc.pid,proc.name)
+            for nt in flist:
+                print("\t",nt.path)
+
+    # This catches a race condition where a process ends
+    # before we can examine its files    
+    except psutil.NoSuchProcess as err:
+        print("****",err) 
