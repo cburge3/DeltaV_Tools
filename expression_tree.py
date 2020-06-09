@@ -76,6 +76,9 @@ class ExpressionTree:
     def get_active_node(self):
         return self.current_node
 
+    def current_node_value(self):
+        return self.nodes[self.current_node].value
+
     def add_leaf(self, val=None):
         i = ExpressionTree._id
         n = Node(value=val)
@@ -198,10 +201,11 @@ class ExpressionTree:
         return i
 
     def has_data(self):
-        if len(self.nodes.keys()) == 1 and self.nodes[self.nodes.keys()[0]].value is None:
-            return False
-        else:
-            return True
+        # if len(self.nodes.keys()) == 1 and self.nodes[self.nodes.keys()[0]].value is None:
+        #     return False
+        # else:
+        #     return True
+        return bool(self.nodes)
 
     def draw_tree(self, tree=None, target=None, parent=-1):
         previous = parent

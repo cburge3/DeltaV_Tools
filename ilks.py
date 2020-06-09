@@ -1,7 +1,9 @@
 import xlsxwriter
 from setup import convertfhxtoxml
 from dv_parser import ExpressionParser
+from dv_interpreter import MMMInterpreter
 import re
+
 
 data = []
 
@@ -97,14 +99,19 @@ for mod in data:
 
 first_tag = re.compile(r'\d{3}_\w{1,3}-\d{1,3}')
 P = ExpressionParser()
+M = MMMInterpreter()
 
 for mod in data:
     for ilk in mod['ilk_data']:
         ilk['cause_tag'] = []
         # populate cause tag
-        conditions = P.parse_condition(ilk['raw_expression'], cond_object=True)
         print(ilk['raw_expression'])
-        print(conditions)
+        e_tree = P.parse_condition(ilk['raw_expression'])
+        # tr = e_tree.draw_tree()
+        # e_tree.render_tree(tr)
+        # input()
+        output = M.interpret_expression(e_tree)
+        print(output)
         # tag = first_tag.search(ilk['raw_expression'])
         # if tag is not None:
         #     ilk['cause_tag'].append(tag.group())
