@@ -2,6 +2,7 @@ import re
 import csv
 from setup import convertfhxtoxml
 from dv_parser import ExpressionParser
+from SFCs import SFCDocumenter
 
 # TODO
 # CR = code review , Doc = Documentation
@@ -24,28 +25,13 @@ from dv_parser import ExpressionParser
 
 class CodeDocumenter(ExpressionParser):
     def __init__(self, **kwargs):
-        super(ExpressionParser).__init__()
-        self.comment = re.compile('(?:\(\*[\s\S]*?\*\))|(?:REM.*)')
-        self.keywords = 'ABS,EXP,MAX,SHL,ACOS,EXPT,MIN,SHR,AND,EUP,MOD,SIGN,ASIN,FALSE,NOT,SIN,ASR16,FRACT,' \
-                        'Option Explicit,SQRT,ATAN,GOOD,OR,STBT,AUTO,GOTO,OS,SYSSTAT,BAD,IF,PEU,TAN,CAS,IMAN,REM,THEN,' \
-                        'COS,LIMITED_CONSTANT,ROL,TIME,DO,LIMITED_HIGH,ROR,TIME_TO_STR,ELSE,LIMITED_LOW,ROTL,TRUE,' \
-                        'END_IF,LN,ROTL16,TRUNC,END_VAR,LO,ROTR,UNC,END_WHILE,LOG,ROTR16,VAR,LOG2,ROUND,XOR,MAN,' \
-                        'SELSTR,WHILE'
-        self.operands = '+, -, *, /, AND, OR, NOT, XOR, MOD, !, =,<>, ~=, !=, <, >, <=, >=, **, :=, (,), x?y:z, ~,' \
-                        ' ^,&, %'
-        self.assignment_op = re.compile('(.*)?:=(.*)?;')
-        self.comparison_operators = re.compile('(' + '|'.join(['=','<>','~=','!=','<','>','<=','>=']) + ')')
-        self.conditional_chunks = re.compile('(OR|AND|XOR)')
-        self.path = re.compile(r"'(\/\/|\^\/|\/|\w+)(\w+)(\/|\w+)+\.?(\w+)'")
-        self.step_convention = re.compile('S\d+')
-        self.strings = []
-        self.assignments = []
-        self.lookups = dict([("REQ_MODE","Mode"), ("REQ_SP", "")])
-        info = kwargs.get('info', None)
+        ExpressionParser.__init__(self)
         self.actions = []
         self.transtions = []
+        self.ruleset = dict()
 
     def give_datafiles(self, file):
+        # this requires datafiles parsed by the SFC utility
         with open('outputs\\' + file + '_actions.csv', mode='r') as excel:
             actions = csv.DictReader(excel)
             for row in actions:
@@ -58,153 +44,141 @@ class CodeDocumenter(ExpressionParser):
 
     def parse_actions(self, row_data):
         self.actions.append(row_data)
-        self.actions[-1]['cleaned actions'] = self.tokenize_actions(self.actions[-1]['action expression'])
+        # self.actions[-1]['cleaned actions'] = self.tokenize_actions(self.actions[-1]['action expression'])
 
     def parse_transitions(self, row_data):
         self.transtions.append(row_data)
 
     # for assignment type expressions
-    def tokenize_actions(self, expression):
-        cleaned = self.comment.sub('', expression)
-        # parse by character for string level
-        quote_indices = []
-        open_quote = 0
-        action_list = []
-
-        cleaned, quotes = self.sub_quotes(cleaned)
-
-        # find assignments operators
-        assignments = self.assignment_op.findall(cleaned)
-        for m in assignments:
-            sides = []
-            for side in m:
-                sides.append(side.strip())
-            action_list.append(sides)
-        return action_list
-
-    # this is for condition type expressions
-    def tokenize_condition(self, expression):
-        cleaned = self.comment.sub('', expression)
-        # parse by character for string level
-        condition_list = []
-        # assignments = self.assignment_op.findall(cleaned)
-        conditions, quotes = self.sub_quotes(cleaned)
-        conds = self.conditional_chunks.split(conditions)
-        # for a in conds:
-        #     condition_list.append(self.comparison_operators.split(a))
-        for a in conds:
-            condition_list.append(self.comparison_operators.split(a))
-        # print(self.comparison_operators.pattern)
-        # for m in conds:
-        #     sides = []
-        #     for side in m:
-        #         sides.append(side.strip())
-        #         condition_list.append(sides)
-        return condition_list
-
-
-    def tokenize_path(self, path):
-        path_characters = '|'.join(["^",":","\/","\."])
-        return re.split(path_characters, path)
-
-
-    def sub_quotes(self, expression):
-        open_quote = 0
-        quote_indices = []
-        for c in range(0, len(expression)):
-            if expression[c] == '"' and open_quote == 0:
-                open_quote = c
-            elif expression[c] == '"' and open_quote != 0:
-                quote_indices.append((open_quote, c+1))
-                open_quote = 0
-        quotes = []
-        quote_dict = dict()
-        if len(quote_indices) > 0:
-            [quotes.append(expression[m[0]:m[1]]) for m in quote_indices]
-        idx = 0
-        cleaned = expression
-        for m in range(0, len(quotes)):
-            cleaned = expression.replace(quotes[m], "%String{0}%".format(idx))
-            quote_dict[idx] = quotes[m]
-            idx += 1
-        return cleaned, quotes
+    # def tokenize_actions(self, expression):
+    #     cleaned = self._comment.sub('', expression)
+    #     # parse by character for string level
+    #     quote_indices = []
+    #     open_quote = 0
+    #     action_list = []
+    #
+    #     cleaned, quotes = self.sub_quotes(cleaned)
+    #
+    #     # find assignments operators
+    #     assignments = self._assignment_op.findall(cleaned)
+    #     for m in assignments:
+    #         sides = []
+    #         for side in m:
+    #             sides.append(side.strip())
+    #         action_list.append(sides)
+    #     return action_list
 
     # main code verification function
 
     def check_against_rules(self):
-        ruleset = dict()
+        self.ruleset['reference_to_wrong_step'] = True
+        # ruleset['reference_to_wrong_step'] = False
+        self.ruleset['action_bad_delay'] = True
+        self.ruleset['quick_document'] = True
         for action in self.actions:
             action['comments'] = ''
         for transition in self.transtions:
             transition['comments'] = ''
-        ruleset['reference_to_wrong_step'] = True
-        ruleset['reference_to_wrong_step'] = False
-        ruleset['action_self_delayed'] = True
-        ruleset['quick_document'] = True
-        if ruleset['quick_document']:
-            mbrs = root.findall('.//module_block')
-            for mbr in mbrs:
-                self.lookups[mbr.attrib['name']] = mbr.attrib['module']
-            check_mode = re.compile('req_mode', re.IGNORECASE)
-            check_sp = re.compile('(sp\.cv)|(out\.cv)|(req_sp\.cv)', re.IGNORECASE)
-            check_param = re.compile('(t|r|o)p\d{3,}_value', re.IGNORECASE)
-            for action in self.actions:
-                action['quick document'] = ''
-                for a in action['cleaned actions']:
-                    if check_mode.search(a[0] + a[1]) is not None:
-                        l = self.tokenize_path(a[0])
-                        r = self.tokenize_path(a[1])
-                        action['quick document'] += "Set {0} {1} to {2}, "\
-                            .format(self.lookups[l[1]], self.lookups[l[2]], r[0])
-                    if check_sp.search(a[0]) is not None:
-                        l = self.tokenize_path(a[0])
-                        r = self.tokenize_path(a[1])
-                        sp = ''
-                        if r[-1].strip("'") == "CV":
-                            sp = r[-2].strip("'")
-                        else:
-                            sp = r[-1].strip("'")
-                        try:
-                            target = self.lookups[l[2]]
-                        except KeyError:
-                            target = l[2]
-                        action['quick document'] += "Set {0} {1} to {2}, ".format(self.lookups[l[1]], target, sp)
-                    if check_param.search(a[0]) is not None:
-                        l = self.tokenize_path(a[0])
-                        r = self.tokenize_path(a[1])
-                        print("Set {0} to {1}, ".format(l[1], r[0]))
-                        print(a[0],a[1])
-                action['quick document'] = action['quick document'][:-2]
+        # for key, value in self.ruleset:
+        #     if value
+
+
+        # if ruleset['quick_document']:
+        #     # make mbr lookups
+        #     self.lookups = {}
+        #     mbrs = root.findall('.//module_block')
+        #     for mbr in mbrs:
+        #         self.lookups[mbr.attrib['name']] = mbr.attrib['module']
+        #     check_mode = re.compile('req_mode', re.IGNORECASE)
+        #     check_sp = re.compile('(sp\.cv)|(out\.cv)|(req_sp\.cv)', re.IGNORECASE)
+        #     check_param = re.compile('(t|r|o)p\d{3,}_value', re.IGNORECASE)
+        #     for action in self.actions:
+        #         action['quick document'] = ''
+        #         for a in action['cleaned actions']:
+        #             if check_mode.search(a[0] + a[1]) is not None:
+        #                 l = self.tokenize_path(a[0])
+        #                 r = self.tokenize_path(a[1])
+        #                 action['quick document'] += "Set {0} {1} to {2}, "\
+        #                     .format(self.lookups[l[1]], self.lookups[l[2]], r[0])
+        #             if check_sp.search(a[0]) is not None:
+        #                 l = self.tokenize_path(a[0])
+        #                 r = self.tokenize_path(a[1])
+        #                 sp = ''
+        #                 if r[-1].strip("'") == "CV":
+        #                     sp = r[-2].strip("'")
+        #                 else:
+        #                     sp = r[-1].strip("'")
+        #                 try:
+        #                     target = self.lookups[l[2]]
+        #                 except KeyError:
+        #                     target = l[2]
+        #                 action['quick document'] += "Set {0} {1} to {2}, ".format(self.lookups[l[1]], target, sp)
+        #             if check_param.search(a[0]) is not None:
+        #                 l = self.tokenize_path(a[0])
+        #                 r = self.tokenize_path(a[1])
+        #                 print(a,l,r)
+        #                 print("Set {0} to {1}, ".format(l[1], r[0]))
+        #                 print(a[0],a[1])
+        #         action['quick document'] = action['quick document'][:-2]
 
 
 
 
-        if ruleset['reference_to_wrong_step']:
-            # all_steps = set([m['step name'] for m in self.actions])
-            # rows in the table
-            for action in self.actions:
-                # print(action['step name'], action['action name'], type(action), len(action['cleaned actions']))
-                # source / destination pairs in actions
-                for assignment_pairs in action['cleaned actions']:
-                    # source and destination in action pairs
-                    for side in assignment_pairs:
-                        step_reference = self.step_convention.search(side)
-                        if step_reference:
-                            if step_reference.group() != action['step name']:
-                                print('Step reference error found in ' + action['step name'] +
-                                      '/' + action['action name'])
-                                action['comments'] += 'Step referenced outside of this step\n'
-
-        if ruleset['action_self_delayed']:
+        if self.ruleset['reference_to_wrong_step']:
             pass
+            # # all_steps = set([m['step name'] for m in self.actions])
+            # # rows in the table
+            # for action in self.actions:
+            #     # print(action['step name'], action['action name'], type(action), len(action['cleaned actions']))
+            #     # source / destination pairs in actions
+            #     for assignment_pairs in action['cleaned actions']:
+            #         # source and destination in action pairs
+            #         for side in assignment_pairs:
+            #             step_reference = self.step_convention.search(side)
+            #             if step_reference:
+            #                 if step_reference.group() != action['step name']:
+            #                     print('Step reference error found in ' + action['step name'] +
+            #                           '/' + action['action name'])
+            #                     action['comments'] += 'Step referenced outside of this step\n'
+
+        if self.ruleset['action_bad_delay']:
+            # first check if is a standard previous action state delay
+            print(self.actions[0])
+            # if action['action delay']
+            for a in range(1,len(self.actions)):
+                print(a)
+                action = self.actions[a]
+                if action['action qualifier'] != "P":
+                    continue
+                d = action['action delay']
+                # print(d)
+                tokens = self.tokenize_condition(d)
+                # for t in tokens:
+                #     print(t.kind,":", t)
+                for t in range(0, len(tokens)):
+                    # check for delay with path, comparison, then named set
+                    if tokens[t].kind == 'comp_op' and tokens[t-1].kind == 'dv_path' and tokens[t+1].kind == 'named_set':
+                        # print(tokens[t-1],tokens[t],tokens[t+1])
+                        path_tokens = self.tokenize_path(str(tokens[t-1]))
+                        # print(path_tokens)
+                        # check if the first item is an internal path and not a reference to elsewhere i.e. step name
+                        if path_tokens[0].kind == 'local' and path_tokens[1].kind == 'path_piece':
+                            if str(path_tokens[1]) != action['step name']:
+                                action['comments'] += "Reference to the wrong step in delay. "
+                            if str(path_tokens[2]) != self.actions[a-1]['action name']:
+                                action['comments'] += "Delay isn't referenced to the previous action. "
+
+            # print(self.tokenize_condition(d))
+
             # for action in self.actions:
             #     self.tokenize_condition(action['action delay'])
             # for transition in self.transtions:
             #     print(self.tokenize_condition(transition['condition']))
 
     def show_steps(self):
-        for l in self.actions:
-            print(l['cleaned actions'])
+        pass
+        # for l in self.actions:
+        #     print(l['cleaned actions'])
     def print_table(self):
         csv_out = "outputs\\" + csv_file + "_output.csv"
         with open(csv_out, 'w') as csvfile:
@@ -213,11 +187,12 @@ class CodeDocumenter(ExpressionParser):
             for a in self.actions:
                 writer.writerow(a)
 
-if '__name__' == '__main__':
-    xml = '324_EM-A02-XFR'
-    root = convertfhxtoxml(xml, forcerebuild=False)
-    csv_file = '324_EM-A02-XFR_compiled'
-    P = ExpressionParser()
+if __name__ == '__main__':
+    fhx = 'CELL2'
+    root = convertfhxtoxml(fhx, forcerebuild=False)
+    D = SFCDocumenter(fhx)
+    csv_file = fhx + '_compiled'
+    P = CodeDocumenter()
     P.give_datafiles(csv_file)
     P.check_against_rules()
     P.print_table()

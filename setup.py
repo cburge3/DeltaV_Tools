@@ -20,6 +20,8 @@ def convertfhxtoxml(filename, forcerebuild=False):
     temp = 'temporary'
     xmlfile = subdir + '\\' + filename + '.xml'
     tempfile = subdir + '\\' + temp + '.xml'
+    # TODO
+    # get timestamp from XML and check against fhx timestamp to determine whether to rebuild fhx or not
     if not os.path.isfile(xmlfile) or forcerebuild is True:
         print("Generating xml from fhx file...")
         cwd = os.getcwd() + '\\'

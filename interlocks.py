@@ -31,6 +31,8 @@ for mod in root.findall("module_instance"):
     if index == 0:
         del data[module_name]
 
+print(data)
+
 # build report
 
 report = open("outputs\\" + filename + "_Interlocks.csv", 'w')

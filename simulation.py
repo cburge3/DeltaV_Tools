@@ -4,7 +4,7 @@ from math import trunc
 """This script is to generate simple tieback code for any class based modules in the configuration given
 in <filename>.fhx"""
 
-filename = "A_340"
+filename = "SubsetofCELL2"
 root = convertfhxtoxml(filename, forcerebuild=True)
 
 data = {}

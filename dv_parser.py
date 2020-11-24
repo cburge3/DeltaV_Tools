@@ -21,7 +21,6 @@ import time
 # Delay expressions that are either for the containing action or an action in a different step
 # Pull IF/THEN pairs out before checking assignment operators
 
-
 # this is only meant to handle 1 SFC at a time
 
 # ideally this can be modified to parse expressions and sub in English language independent of an SFC context
@@ -61,6 +60,7 @@ SELSTR,WHILE""".split(',')))
         #                 ' ^,&, %'
         self._functions = re.compile(r"""(?:ABS|EXP|MAX|ACOS|EXPT|MIN|MOD|SIGN|ASIN|NOT|SIN|SQRT|ATAN|TAN|COS|LN|LOG|
 LOG2|ROUND|XOR)""", re.IGNORECASE)
+        # define all possible tokens
         self._arithmetic_operators = re.compile(r"\+|-|\*{1,2}|\/|&|%")
         self._assignment_op = re.compile('(.*)?:=(.*)?;')
         self._comparison_operators = re.compile(r'(?:>=?|<(?:>|=)?|!=|~=|=)')
@@ -71,15 +71,29 @@ LOG2|ROUND|XOR)""", re.IGNORECASE)
         self._named_set = re.compile(r"'(?:\_|\w|\#|\$|\-){1,40}:(?:\_|\s|\w|\#|\$|\-)+'")
         self._open_paren = re.compile(r"\(")
         self._close_paren = re.compile(r"\)")
+        self._string = re.compile(r"\".*\"")
         self._space = re.compile(r"\s+")
         self._semicolon = re.compile(r";")
+        self._path_eref = re.compile(r"('\/\/)")
+        self._path_olevup = re.compile(r"('\^\/)")
+        self._path_modlev = re.compile(r"('/)")
+        self._path_local = re.compile(r"(')")
+        self._path_path = re.compile(r"(\w+|\_+|\-+)")
+        self._path_alias = re.compile(r"#(\w|\-|\_){1,16}#")
+        self._path_delimiter = re.compile(r"(?:/)")
+        self._path_suffix = re.compile(r".(\w+')")
+        self.path_tokens_rex = {'eref': self._path_eref, 'module_lev': self._path_modlev, 'up_level':self._path_olevup,
+                                'local': self._path_local, 'path_piece': self._path_path, 'alias': self._path_alias,
+                                'delimiter': self._path_delimiter, 'path_suffix': self._path_suffix}
         self.tokens_rex = {'space': self._space, 'open_p': self._open_paren, 'close_p': self._close_paren,
                            'comp_op': self._comparison_operators, 'bool_op': self.boolean_ops, 'dv_path': self._path,
                            'number': self._number, 'keyword': self._constants, 'math_op': self._arithmetic_operators,
-                           'function': self._functions, 'named_set': self._named_set, 'semicolon': self._semicolon}
+                           'function': self._functions, 'named_set': self._named_set, 'string': self._string,
+                           'semicolon': self._semicolon}
         self._operand_family = {'dv_path', 'number', 'keyword', 'named_set'}
         self._operator_family = {'comp_op', 'bool_op', 'math_op'}
         self._ignored_family = {'semicolon', 'space'}
+        self._path_ignored = {'delimiter'}
         self._function_family = {'function'}
 
     def parse_assignment(self, text):
@@ -174,6 +188,7 @@ LOG2|ROUND|XOR)""", re.IGNORECASE)
                         tokens.append(Token(raw_string, z))
                     e = e[t.span()[1]:]
                     matched = True
+            print(e,tokens)
             if not matched:
                 print(self._space.match(e))
                 print(self._comparison_operators.match(e))
@@ -181,11 +196,25 @@ LOG2|ROUND|XOR)""", re.IGNORECASE)
         return tokens
 
     def tokenize_path(self, path):
-        path_characters = '|'.join(["^",":","\/","\.","'"])
-        re.split(path_characters, path)
-        pieces = re.split(path_characters, path)
-        pieces = [a for a in pieces if len(a.strip()) >= 2]
-        return pieces
+        p = path
+        tokens = []
+        print(p)
+        while len(p) > 0:
+            matched = False
+            t = None
+            for z in self.path_tokens_rex.keys():
+                t = self.path_tokens_rex[z].match(p)
+                if t:
+                    if z not in self._path_ignored:
+                        raw_string = t.group(1)
+                        tokens.append(Token(raw_string, z))
+                    p = p[t.span()[1]:]
+                    matched = True
+            if not matched:
+                print(self._space.match(p))
+                print(self._comparison_operators.match(p))
+                raise Exception("Tokens: {} unexpected token:{}".format(tokens, p))
+        return tokens
 
     def sub_quotes(self, expression):
         open_quote = 0
