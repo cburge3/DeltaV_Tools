@@ -188,17 +188,13 @@ LOG2|ROUND|XOR)""", re.IGNORECASE)
                         tokens.append(Token(raw_string, z))
                     e = e[t.span()[1]:]
                     matched = True
-            print(e,tokens)
             if not matched:
-                print(self._space.match(e))
-                print(self._comparison_operators.match(e))
                 raise Exception("Tokens: {} unexpected token:{}".format(tokens, e))
         return tokens
 
     def tokenize_path(self, path):
         p = path
         tokens = []
-        print(p)
         while len(p) > 0:
             matched = False
             t = None
@@ -211,8 +207,6 @@ LOG2|ROUND|XOR)""", re.IGNORECASE)
                     p = p[t.span()[1]:]
                     matched = True
             if not matched:
-                print(self._space.match(p))
-                print(self._comparison_operators.match(p))
                 raise Exception("Tokens: {} unexpected token:{}".format(tokens, p))
         return tokens
 

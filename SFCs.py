@@ -7,6 +7,7 @@ import re
 
 """This can export SFC instructions into a docx table format or a csv table format"""
 
+
 class SFCDocumenter():
     def __init__(self, source_filename, *args):
         if type(args) != dict:
@@ -29,7 +30,7 @@ class SFCDocumenter():
         self.source_filename = source_filename
 
         logic_lookup = dict()
-        root = convertfhxtoxml(source_filename, forcerebuild=False)
+        root = convertfhxtoxml(source_filename)
         unclassed_object = re.compile('__[\d\w]{8}_[\d\w]{8}__')
 
         fb_defs = root.findall('.//function_block_definition')
@@ -249,6 +250,8 @@ class SFCDocumenter():
                                     my_expression = tr.find('expression').text
                                 trans_row[1].text = my_expression
                                 trans_row[1].merge(trans_row[4])
+            else:
+                print(sfc_id)
         if self.format_type['docx']:
             doc.save('outputs\\SFC_report.docx')
 
