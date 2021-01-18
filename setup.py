@@ -19,6 +19,11 @@ def convertfhxtoxml(filename):
     prsr = None
     subdir = 'inputs'
     temp = 'temporary'
+    if ' ' in filename:
+        if os.path.isfile(subdir + os.sep + filename.replace(' ', '_') + '.fhx'):
+            os.remove(subdir + os.sep + filename.replace(' ', '_') + '.fhx')
+        os.rename(subdir + os.sep + filename + '.fhx', subdir + os.sep + filename.replace(' ', '_') + '.fhx')
+        filename = filename.replace(' ', '_')
     xmlfile = subdir + os.sep + filename + '.xml'
     tempfile = subdir + os.sep + temp + '.xml'
     # get timestamp from XML and check against fhx timestamp to determine whether to rebuild fhx or not

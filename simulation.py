@@ -4,8 +4,8 @@ from math import trunc
 """This script is to generate simple tieback code for any class based modules in the configuration given
 in <filename>.fhx"""
 
-filename = "SubsetofCELL2"
-root = convertfhxtoxml(filename, forcerebuild=True)
+filename = "Subset of Control Strategies"
+root = convertfhxtoxml(filename)
 
 data = {}
 class_library = {}
@@ -48,10 +48,10 @@ c_logic = {
 }
 oon_logic = {
     'EDC': '\'//@mod@/@block@/IGNORE_PV.CV\' := 1; \n\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n',
-    'AO': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2;\n',
+    'AO': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2;\n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
     'DIWCALARM': '\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE_D.SSTATUS\' := GOOD;\n',
     'AIWCALARM': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
-    'DO': '\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n',
+    'DO': '\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n\'//@mod@/@block@/SIMULATE_D.SSTATUS\' := GOOD;\n',
     'AI': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
     'PIDWCALARM': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
     'PID': '\'//@mod@/@block@/SIMULATE.ENABLE\' := 2; \n\'//@mod@/@block@/SIMULATE.SSTATUS\' := GOOD;\n',
@@ -70,6 +70,8 @@ ooff_logic = {
     'DI': '\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 2;\n',
     'DC': '\'//@mod@/DC_CTRL/IGN_PV.CV\' := 0; \n\'//@mod@/@block@/SIMULATE_D.ENABLE\' := 1;\n'
 }
+
+ai_ao_tieback = '\'//@mod@/@ai@/SIMULATE.SVALUE\' := \'//@mod@/@ao@/SP.CV\';\n'
 
 print('Building module class library...')
 for c in root.findall('module_class'):
@@ -121,6 +123,12 @@ for a in list(data):
                 continuous_logic += c_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
                 oneshot_on_logic += oon_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
                 oneshot_off_logic += ooff_logic[b[0]].replace('@mod@', m[0]).replace('@block@', b[1])
+            # if module contains AI/AO pair then tie the first AO back to the first AI
+            all_blocks = list([a[0] for a in class_library[m[1]]])
+            if 'AI' in all_blocks and 'AO' in all_blocks:
+                ai = class_library[m[1]][all_blocks.index('AI')][1]
+                ao = class_library[m[1]][all_blocks.index('AO')][1]
+                continuous_logic += ai_ao_tieback.replace('@mod@', m[0]).replace('@ai@', ai).replace('@ao@', ao)
     max_count = 0
     best_ctrl = ''
     continuous_logic = continuous_logic.split('\n')
@@ -145,7 +153,10 @@ for a in list(data):
             logic_set = ''
         # estimate number of lines of code
         lines = len(logic_set)
+        # TODO there is a problem here where if the # lines are exactly the
+        #  max lines per block then a black action block is created
         # calculate number of action blocks needed
+
         n_actblocks = trunc(lines / max_lines_perblock) + 1
         for r in range(1, n_actblocks + 1):
             logic_output = ''
