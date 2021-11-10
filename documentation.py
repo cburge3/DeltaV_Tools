@@ -91,7 +91,7 @@ class CodeDocumenter(ExpressionParser):
                 writer.writerow(a)
 
 if __name__ == '__main__':
-    fhx = 'CELL2'
+    fhx = 'PH_RX_NAOH_CLEAN'
     root = convertfhxtoxml(fhx)
     D = SFCDocumenter(fhx)
     csv_file = fhx + '_compiled'

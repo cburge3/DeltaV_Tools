@@ -41,16 +41,16 @@
 #     # print("'^/OP{}_VALUE.CV' := 0;".format(n))
 #     # print("'^/OP{}_VALUE.CV' = 0 AND".format(n))
 
-from utilities import camel_case
-s = """Sludge Thickener Lift Station Pump Alarm
-900V101 acid cracking tank high LEL alarm
-900V105 building sumo high LEL alarm
-900V109 high LEL
-900V109 high LEL alarm"""
+# from utilities import camel_case
+# s = """Sludge Thickener Lift Station Pump Alarm
+# 900V101 acid cracking tank high LEL alarm
+# 900V105 building sumo high LEL alarm
+# 900V109 high LEL
+# 900V109 high LEL alarm"""
 
-s = s.split('\n')
-for l in s:
-    print(camel_case(l))
+# s = s.split('\n')
+# for l in s:
+#     print(camel_case(l))
 # for l in s:
 #     l = l.split(' ')
 #     out = []
@@ -63,4 +63,19 @@ for l in s:
 #     out = ' '.join(out)
 #     print(out)
 
+t = """'^/L_HOLD_TIME.CV' := '//#UNIT_SUPPORT#/TMR1/HH_MM_SS.CV';
+'^/L_RST_TIME.CV' := time_to_str("%T", time('$time_format:Local'));
+'^/L_RST_TEMP.CV' := '//#AI_TEMP#/PV.CV';
+'^/L_RST_COND.CV' := '//#AI_CONDUCTIVITY#/PV.CV';
+'^/L_RST_PH.CV' := '//#AI_CONDUCTIVITY#/PV.CV';"""
+
+import re
+q = re.findall(";",t)
+out = t.replace(":=", "=").replace(";"," AND", len(q)-1)
+print(len(q))
+    # print(z)
+
+# .replace(";"," AND")
+
+print(out)
 

@@ -4,7 +4,7 @@ from math import trunc
 """This script is to generate simple tieback code for any class based modules in the configuration given
 in <filename>.fhx"""
 
-filename = "Subset of Control Strategies"
+filename = "UF"
 root = convertfhxtoxml(filename)
 
 data = {}
