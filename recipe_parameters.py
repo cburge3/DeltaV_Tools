@@ -8,11 +8,15 @@ class RecipeDatabase:
     def __init__(self, database_name):
         self.db_name = database_name
         self.db_folder = "outputs\\"
+        if not os.path.isdir(self.db_folder):
+            os.mkdir(self.db_folder)
+            os.mkdir("inputs\\")
         self.db_path = "{}{}_recipe_database.json".format(self.db_folder, self.db_name)
         self.report_path = "{}\\{}_reports".format(self.db_folder, self.db_name)
         self.levels = ['phases', 'operations', 'unit_procedures', 'procedures']
         self.parameter_types = {'BATCH_PARAMETER_REAL': "Real", "ENUMERATION_VALUE": "Named Set",
                                 "BATCH_PARAMETER_INTEGER": "Integer", "UNICODE_STRING": "String"}
+
     def db_load(self):
         if os.path.exists(self.db_path):
             with open(self.db_path, "r") as object_storage:
@@ -111,12 +115,37 @@ class RecipeDatabase:
                     #     strings
                     if lo is None and enum_set is None:
                         parameters[p_name]['value'] = pp.find('.//cv').text
-            # step = dict()
-            # steps = r.findall('.//step')
-            # for s in steps:
-            #     s_name = s.attrib['name']
-            #     s_def = s.attrib['definition']
-            data[translation[recipe_type]][r_name] = parameters
+
+            r_data = dict()
+            r_data['parameters'] = parameters
+            step = dict()
+            steps = r.findall('.//step')
+            for s in steps:
+                step['name'] = s.attrib['name']
+                if 'definition' in s.attrib.keys():
+                    step['definition'] = s.attrib['definition']
+                step['x'] = s.find('.//rectangle//x').text
+                step['y'] = s.find('.//rectangle//y').text
+                step['w'] = s.find('.//rectangle//w').text
+                step['h'] = s.find('.//rectangle//h').text
+                step_params = s.findall('.//step_parameter')
+                if step_params:
+                    step['parameters'] = dict()
+                    for sp in step_params:
+                        sp_name = sp.attrib['name']
+                        step['parameters'][sp_name] = dict()
+                        origin = sp.find('.//origin').text
+                        step['parameters'][sp_name]['origin'] = origin
+                        if origin == 'DEFERRED':
+                            step['parameters'][sp_name]['target'] = sp.find('.//deferred_to').text
+                        elif origin == 'REFERRED':
+                            step['parameters'][sp_name]['target'] = sp.find('.//referred_to').text
+
+
+
+                print(step)
+            # data[translation[recipe_type]][r_name] = parameters
+            data[translation[recipe_type]][r_name] = r_data
         with open(self.db_path, "w") as object_storage:
             json.dump(data, object_storage)
 
@@ -191,6 +220,6 @@ class RecipeDatabase:
 
 if __name__ == "__main__":
     rd = RecipeDatabase("Lonza2")
-    # rd.load_fhx_file("Recipes_all")
-    rd.load_full_directory("22Nov22 Recipes")
-    rd.kneat_rp_table()
+    rd.load_fhx_file("PR-CHRM-INLET-PRIME")
+    # rd.load_full_directory("22Nov22 Recipes")
+    # rd.kneat_rp_table()

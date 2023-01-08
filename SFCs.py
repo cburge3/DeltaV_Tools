@@ -1,6 +1,6 @@
 from setup import convertfhxtoxml
 from utilities import populatenamedset
-from docx import Document
+# from docx import Document
 from collections import defaultdict
 import csv
 import re

@@ -154,7 +154,7 @@ for a in list(data):
         # estimate number of lines of code
         lines = len(logic_set)
         # TODO there is a problem here where if the # lines are exactly the
-        #  max lines per block then a black action block is created
+        #  max lines per block then a blank action block is created
         # calculate number of action blocks needed
 
         n_actblocks = trunc(lines / max_lines_perblock) + 1
