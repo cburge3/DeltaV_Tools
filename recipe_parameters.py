@@ -83,6 +83,8 @@ class RecipeDatabase:
         for r in recipes:
             r_name = r.attrib['name']
             recipe_type = r.attrib['type']
+
+            # formula_parameters
             params = r.findall(".//formula_parameter")
             parameters = dict()
             for pp in params:
@@ -117,11 +119,17 @@ class RecipeDatabase:
                         parameters[p_name]['value'] = pp.find('.//cv').text
 
             r_data = dict()
-            r_data['parameters'] = parameters
-            step = dict()
-            steps = r.findall('.//step')
-            for s in steps:
+            r_data['formula_parameters'] = parameters
+
+            # steps
+            stps = r.findall('.//step')
+            steps = dict()
+            for s in stps:
+                step = dict()
                 step['name'] = s.attrib['name']
+                d = s.find('.//description').text
+                if d is not None:
+                    step['description'] = d
                 if 'definition' in s.attrib.keys():
                     step['definition'] = s.attrib['definition']
                 step['x'] = s.find('.//rectangle//x').text
@@ -140,12 +148,38 @@ class RecipeDatabase:
                             step['parameters'][sp_name]['target'] = sp.find('.//deferred_to').text
                         elif origin == 'REFERRED':
                             step['parameters'][sp_name]['target'] = sp.find('.//referred_to').text
+                steps[step['name']] = step
+            r_data['steps'] = steps
 
+            # transitions
+            trnstn = r.findall('.//transition')
+            transitions = dict()
+            for t in trnstn:
+                transition = dict()
+                transition['name'] = t.attrib['name']
+                d = t.find('.//description')
+                if d is not None:
+                    transition['description'] = d.text
+                transition['x'] = t.find('.//position//x').text
+                transition['y'] = t.find('.//position//y').text
+                transition['termination'] = t.find('.//termination').text
+                transition['expression'] = t.find('.//expression').text
+                transitions[transition['name']] = transition
+            r_data['transitions'] = transitions
 
+            # connections - I think it's OK to dump this info into the step / transition objects here
+            # need to handle parallel / converging connections here as I'm not sure how they are represented
+            # and data may be lost when 'connection' would potentially be overwritten
+            conxns = r.findall('.//step_transition_connection')
+            for c in conxns:
+                r_data['steps'][c.attrib['step']]['connection'] = c.attrib['transition']
+            conxns = r.findall('.//transition_step_connection')
+            for c in conxns:
+                r_data['transitions'][c.attrib['transition']]['connection'] = c.attrib['step']
 
-                print(step)
-            # data[translation[recipe_type]][r_name] = parameters
+            # write all recipe data to database
             data[translation[recipe_type]][r_name] = r_data
+
         with open(self.db_path, "w") as object_storage:
             json.dump(data, object_storage)
 
@@ -220,6 +254,6 @@ class RecipeDatabase:
 
 if __name__ == "__main__":
     rd = RecipeDatabase("Lonza2")
-    rd.load_fhx_file("PR-CHRM-INLET-PRIME")
+    rd.load_fhx_file("Recipes_all")
     # rd.load_full_directory("22Nov22 Recipes")
     # rd.kneat_rp_table()

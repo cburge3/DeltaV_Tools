@@ -7,7 +7,8 @@ db = RecipeDatabase('Lonza2')
 data = db.db_load()
 print(data['procedures'].keys())
 
-print(data['procedures']['PR-SUM-MAIN'])
+print(data['procedures']['PR-VRF']['steps'])
+print(data['procedures']['PR-VRF']['transitions'])
 
 
 s = Digraph('structs', filename='structs.gv', node_attr={'shape': 'record'})
