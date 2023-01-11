@@ -71,13 +71,17 @@ class RecipeDatabase:
                 p_name = pp.attrib['name']
                 if p_name in parameters.keys():
                     # input parameters have more data than report parameters
-                    if parameters[p_name]['direction'] == 'INPUT':
-                        lo = pp.find('.//low')
-                        if lo is not None:
-                            parameters[p_name]['low'] = lo.text
+                    if parameters[p_name]['datatype'] == 'BATCH_PARAMETER_REAL' or parameters[p_name]['datatype'] == 'BATCH_PARAMETER_INTEGER':
+                        if parameters[p_name]['direction'] == 'INPUT':
+                            parameters[p_name]['low'] = pp.find('.//low').text
                             parameters[p_name]['high'] = pp.find('.//high').text
                             parameters[p_name]['units'] = pp.find('.//units').text
                             parameters[p_name]['value'] = pp.find('.//cv').text
+                        elif parameters[p_name]['direction'] == 'OUTPUT':
+                            parameters[p_name]['units'] = pp.find('.//units').text
+                    if parameters[p_name]['datatype'] == 'ENUMERATION_VALUE':
+                        parameters[p_name]['set'] = pp.find('.//set').text
+                        parameters[p_name]['value'] = pp.find('.//string_value').text
             data['phases'][p.attrib['name']] = parameters
         recipes = root.findall('.//batch_recipe')
         for r in recipes:
@@ -194,14 +198,15 @@ class RecipeDatabase:
             writer.writeheader()
             for level in self.levels:
                 for recipe in data[level]:
-                    for param in data[level][recipe]:
+                    for param in data[level][recipe]['parameters']:
                         temp_dict = data[level][recipe][param].copy()
                         temp_dict["Recipe"] = recipe
                         temp_dict["Recipe Level"] = level
                         temp_dict['Name'] = param
                         temp_dict['Description'] = temp_dict['description']
-                        temp_dict['Default Value'] = temp_dict['value']
-                        temp_dict['Parameter'] = temp_dict['description']
+                        if 'value' in temp_dict.keys():
+                            temp_dict['Default Value'] = temp_dict['value']
+                            temp_dict['Parameter'] = temp_dict['description']
                         if temp_dict['datatype'] == 'ENUMERATION_VALUE':
                             temp_dict['Range'] = "N/A"
                             temp_dict['Eng. Units'] = "N/A"
@@ -212,7 +217,10 @@ class RecipeDatabase:
                             temp_dict['Eng. Units'] = "N/A"
                             temp_dict['Type'] = self.parameter_types[temp_dict['datatype']]
                         else:
-                            temp_dict['Range'] = " {} - {}".format(temp_dict['low'], temp_dict['high'])
+                            if 'Range' in temp_dict.keys():
+                                temp_dict['Range'] = " {} - {}".format(temp_dict['low'], temp_dict['high'])
+                            else:
+                                temp_dict['Range'] = 'N/A'
                             temp_dict['Eng. Units'] = temp_dict['units']
                             temp_dict['Type'] = self.parameter_types[temp_dict['datatype']]
                         writer.writerow(temp_dict)
